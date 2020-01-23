@@ -136,7 +136,7 @@ detect.CmatA=matrix(NA,nrow=length(pathtab),ncol=length(ftime))
 detect.CmatB=matrix(NA,nrow=length(pathtab),ncol=length(ftime))
 
 
-
+#### \\\\\\\\\\\\\\\  WARNING -- CHECK FOR BUGS FROM HERE DOWN /////////////////
 for(i in 1:length('pathtab')){
   pathogen=pathtab[i]
   incubation.d<-function(d){incubation.function(d,pathogen)}
