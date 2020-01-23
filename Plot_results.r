@@ -7,14 +7,15 @@ source("Code_distribution_functions.R")
 library(ggplot2)
 library(grid)
 library(gridExtra)
+coltab=c("red","blue","orange","green","purple","black")
 
 # - - - - - - - - - - - - - - - - - - - - - - -
 # Plot proportion of travellers identified vs time from exposure to departure (Figure 3)
 # - - - - - - - - - - - - - - - - - - - - - - -
 #Specifiticty of pathogens of interest. Here we include pathogen-specific distributions 
 #   to run the script for H7N9
-pathtab=c("H7N9")
-pathtablab=c("Influenza A/H7N9")
+pathtab=c("SARS", "MERS")
+pathtablab=c("SARS CoV", "MERS CoV")
 
 #Specify efficacy parameters. These will be fed in to the external functions.
 rd=0.25 #efficacy of departure questionnaire (proportion of travelers that report honestly)
@@ -82,7 +83,7 @@ lines(c(outcome1,outcome1),c(0,1),col="black",lwd=2,lty=2)
 
 }
 
-dev.copy(pdf,"Proportion_identified.pdf",width=10,height=7)
+dev.copy(pdf,paste0("Proportion_identified_", pathogen, ".pdf"),width=10,height=7)
 dev.off()
 
 
