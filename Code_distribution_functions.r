@@ -160,6 +160,8 @@ pdf.cdf.travel<-function(x,r0,gen.time,type){
 exposure.outcome<-function(x,pathogen,type=1,flat=0){
   #pathogen-specific median time to outcome (median exposure -> onset + onset -> outcome)
   if(pathogen == "H7N9"){f1<-3.1+4.2}
+  if(pathogen == "MERS"){f1<-(5.2*7+5.5*23)/(7+23)+5}  ## (5.2*7+5.5*23)/(7+23) is a weighted average based on sample sizes of individual studies
+  if(pathogen == "SARS"){f1<-6.4+4.85}
   median=f1
   # Stable epidemic
   if(flat==1){
