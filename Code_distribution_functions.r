@@ -16,10 +16,10 @@ incubation.function<-function(x,pathogen,type=1){
     
     if(type==1){
       functionpath<-H7N9.fn
-      functionpath(x)
+      #functionpath(x)
     }else{
       functionpath<-H7N9.fnD
-      functionpath(x)
+      #functionpath(x)
     }
   }
   
@@ -32,10 +32,10 @@ incubation.function<-function(x,pathogen,type=1){
     
     if(type==1){
       functionpath<-MERS.fn
-      functionpath(x)
+      #functionpath(x)
     }else{
       functionpath<-MERS.fnD
-      functionpath(x)
+      #functionpath(x)
     }
   }
   
@@ -49,16 +49,13 @@ incubation.function<-function(x,pathogen,type=1){
     
     if(type==1){
       functionpath<-SARS.fn
-      functionpath(x)
+      #functionpath(x)
     }else{
       functionpath<-SARS.fnD
-      functionpath(x)
+      #functionpath(x)
     }
   }
-  
-  
-  
-  
+  functionpath(x)
 }
 
 
