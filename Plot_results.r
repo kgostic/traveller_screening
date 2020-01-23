@@ -83,7 +83,7 @@ lines(c(outcome1,outcome1),c(0,1),col="black",lwd=2,lty=2)
 
 }
 
-dev.copy(pdf,paste0("Proportion_identified_", pathogen, ".pdf"),width=10,height=7)
+dev.copy(pdf,paste0("Proportion_identified.pdf"),width=10,height=7)
 dev.off()
 
 
@@ -93,7 +93,6 @@ dev.off()
 
 r0=2 # Reproduction number
 
-pathtab=c("H7N9")
 xx=seq(0,15,0.1)
 typ=1
 par(mfrow=c(1,2))
@@ -248,7 +247,7 @@ plot6<-ggplot(dataFlight, aes(x=pathogen, y=mid,colour=Screening)) +
   ylab("proportion missed") +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
 
-ggsave(filename="Proportion_of_cases_missed.pdf",plot=plot6,width=6,height=4)
+ggsave(filename=paste0("Proportion_of_cases_missed", pathogen, ".pdf",plot=plot6,width=6,height=4)
 
 
 

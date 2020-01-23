@@ -1,4 +1,7 @@
 "","V1","V2","V3","V4","V5"
-"1","H7N9","Fever",0.62,0.72,0.44
-"2","H7N9","Fever & risk",0.44,0.6,0.22
-"3","H7N9","Risk",0.72,0.86,0.56
+"1","SARS","Fever",0.68,0.74,0.5
+"2","MERS","Fever",NA,NA,NA
+"3","SARS","Fever & risk",0.58,0.68,0.38
+"4","MERS","Fever & risk",NA,NA,NA
+"5","SARS","Risk",0.88,0.92,0.8
+"6","MERS","Risk",NA,NA,NA
