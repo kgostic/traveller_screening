@@ -14,8 +14,9 @@ coltab=c("red","blue","orange","green","purple","black")
 # - - - - - - - - - - - - - - - - - - - - - - -
 #Specifiticty of pathogens of interest. Here we include pathogen-specific distributions 
 #   to run the script for H7N9
-pathtab=c("SARS", "MERS")
-pathtablab=c("SARS CoV", "MERS CoV")
+pathtab=c("SARS", "MERS", "nCoV")
+pathtablab=c("SARS CoV", "MERS CoV", "2019-nCoV")
+par(mfrow = c(length(pathtab), 1))
 
 #Specify efficacy parameters. These will be fed in to the external functions.
 rd=0.25 #efficacy of departure questionnaire (proportion of travelers that report honestly)
@@ -111,6 +112,22 @@ dev.copy(pdf,"Time_from_exposure_to_departure.pdf",width=10,height=7)
 dev.off()
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # - - - - - - - - - - - - - - - - - - - - - - -
 # Plot boostrap confidence intervals for effectiveness of different screening measures
 # - - - - - - - - - - - - - - - - - - - - - - -
@@ -153,22 +170,26 @@ for(i in 1:length('pathtab')){
     bootstrapC=c(1:blen) #Output for risk screening only
     
     for(ii in 1:blen){
+      ## 
       pp1<-function(x,dCI,pathogen,relative,f,g){screen.passengers(x, del.d, f, g, sd, sa, 0 , 0, phi.d, incubation.d,pathogen,relative)}
       pp1S<-function(x,dCI,pathogen,relative,f,g){screen.passengers(x, del.d, f, g, sd, sa, 0.25 , 0.25, phi.d, incubation.d,pathogen,relative)}
       pp1C<-function(x,dCI,pathogen,relative,f,g){screen.passengers(x, del.d, f, g, 0, 0, 0.25 , 0.25, phi.d, incubation.d,pathogen,relative)}
       arrive.n=sapply(c(1:popn),function(x){exposure.distn(runif(1, 0, 1),pathogen,flat=flatA)})
+      ## Fever screening only. First, draw probability 
       bb01=sapply(arrive.n,function(x){
-        f0=rbinom(1,fg.distn("f",pathogen)[2],fg.distn("f",pathogen)[1])/fg.distn("f",pathogen)[2]
-        g0=rbinom(1,fg.distn("g",pathogen)[2],fg.distn("g",pathogen)[1])/fg.distn("g",pathogen)[2]
-        pp1(x,1,pathogen,relT,f0,g0)})
-      bb02=sapply(bb01,function(x){ifelse(x<runif(1, 0, 1),0,1)})
-      bootstrap[ii]=sum(bb02)/popn
+        f0=rbinom(1,fg.distn("f",pathogen)[2],fg.distn("f",pathogen)[1])/fg.distn("f",pathogen)[2]  ## Draw fraction with fever
+        g0=rbinom(1,fg.distn("g",pathogen)[2],fg.distn("g",pathogen)[1])/fg.distn("g",pathogen)[2]  ## Draw fraction with known risk  
+        pp1(x,1,pathogen,relT,f0,g0)}) ## Screen passengers using these probabilities. Output probability missed.
+      bb02=sapply(bb01,function(x){ifelse(x<runif(1, 0, 1),0,1)}) ## Draw whether or not case caught.
+      bootstrap[ii]=sum(bb02)/popn   ## Tally the proportion caught in the bootstrapped sample.
+      #Bootstrap for fever AND risk screening
       bb01=sapply(arrive.n,function(x){
         f0=rbinom(1,fg.distn("f",pathogen)[2],fg.distn("f",pathogen)[1])/fg.distn("f",pathogen)[2]
         g0=rbinom(1,fg.distn("g",pathogen)[2],fg.distn("g",pathogen)[1])/fg.distn("g",pathogen)[2]
         pp1S(x,1,pathogen,relT,f0,g0)})
       bb02=sapply(bb01,function(x){ifelse(x<runif(1, 0, 1),0,1)})
       bootstrapS[ii]=sum(bb02)/popn
+      #Bootstrap for risk screening only
       bb01=sapply(arrive.n,function(x){
         f0=rbinom(1,fg.distn("f",pathogen)[2],fg.distn("f",pathogen)[1])/fg.distn("f",pathogen)[2]
         g0=rbinom(1,fg.distn("g",pathogen)[2],fg.distn("g",pathogen)[1])/fg.distn("g",pathogen)[2]
@@ -177,7 +198,7 @@ for(i in 1:length('pathtab')){
       bootstrapC[ii]=sum(bb02)/popn
     }
     
-    #Store results for fever screening only
+    #Store results for fever screening only (Extract median, 2.5 and 97.5th percentile of all samples)
     s1=sort(bootstrap)
     detect.mat[i,j]=1-s1[ceiling(0.5*blen)]
     detect.matA[i,j]=1-s1[ceiling(0.025*blen)]
@@ -247,7 +268,7 @@ plot6<-ggplot(dataFlight, aes(x=pathogen, y=mid,colour=Screening)) +
   ylab("proportion missed") +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
 
-ggsave(filename=paste0("Proportion_of_cases_missed", pathogen, ".pdf",plot=plot6,width=6,height=4)
+ggsave(filename=paste0("Proportion_of_cases_missed.pdf"),plot=plot6,width=6,height=4)
 
 
 

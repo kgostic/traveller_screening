@@ -1,33 +1,34 @@
-## Arrival Screening Decision Tree Model
-#   INPUTS:
-#   d = days since onset
-#   del.d = days spent in flight (can be a fraction)
-#   f = probability that patients present with fever at onset
-#   g = probability that patients are aware of exposure risk factors
-#   sd = symptom screen effectiveness on departure
-#   sa = symptom screen effectiveness on arrival
-#   rd = risk factor screen effectiveness on departure
-#   ra = risk factor screen effectiveness on arrival
-#   phi.d = call to function describing pdf of time from exposure to outcome
-#   incubation.d = call to function describing pdf of time from exposure to onset
-#   pathogen = name of the pathogen (e.g. "H7N9")
-#   relative: this takes a logical value. The default is 0 or FALSE, which tells the function to return
-#                the absolute proprtion of travellers detected at arrival. If relative is set to 1 or TRUE, 
-#                the script will return the proportion of infected travellers detected at arrival given 
-#                that they were missed during departure screening
-#                (i.e. [# detected at arrival]/[# missed at departure])
-#   split1: If 1, the function outputs the following vector:
-#                [stopped.at.departure.fever,
-#                 stopped.at.departure.risk,
-#                 stopped.at.arrival.fever,
-#                 stopped.at.arrival.risk,
-#                 cleared.at.arrival]
-#           If 0 (default), the function outputs only: 
-#                 [cleared.at.arriva]
-#           ALL OUTPUTS ARE GIVEN AS THE PROPORTION OF INFECTED TRAVELLERS IN EACH OUTCOME CLASS
+
 
 screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1, 
                              phi.d, incubation.d, pathogen, relative=0, split1=0){
+  ## Arrival Screening Decision Tree Model
+  #   INPUTS:
+  #   d = days since onset
+  #   del.d = days spent in flight (can be a fraction)
+  #   f = probability that patients present with fever at onset
+  #   g = probability that patients are aware of exposure risk factors
+  #   sd = symptom screen effectiveness on departure
+  #   sa = symptom screen effectiveness on arrival
+  #   rd = risk factor screen effectiveness on departure
+  #   ra = risk factor screen effectiveness on arrival
+  #   phi.d = call to function describing pdf of time from exposure to outcome
+  #   incubation.d = call to function describing pdf of time from exposure to onset
+  #   pathogen = name of the pathogen (e.g. "H7N9")
+  #   relative: this takes a logical value. The default is 0 or FALSE, which tells the function to return
+  #                the absolute proprtion of travellers detected at arrival. If relative is set to 1 or TRUE, 
+  #                the script will return the proportion of infected travellers detected at arrival given 
+  #                that they were missed during departure screening
+  #                (i.e. [# detected at arrival]/[# missed at departure])
+  #   split1: If 1, the function outputs the following vector:
+  #                [stopped.at.departure.fever,
+  #                 stopped.at.departure.risk,
+  #                 stopped.at.arrival.fever,
+  #                 stopped.at.arrival.risk,
+  #                 cleared.at.arrival]
+  #           If 0 (default), the function outputs only: 
+  #                 1-[cleared.at.arriva]
+  #           ALL OUTPUTS ARE GIVEN AS THE PROPORTION OF INFECTED TRAVELLERS IN EACH OUTCOME CLASS
   
 ##Define an internal function to pass travellers in any detection class
   # through the model

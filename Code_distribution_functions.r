@@ -55,6 +55,23 @@ incubation.function<-function(x,pathogen,type=1){
       #functionpath(x)
     }
   }
+  
+  # \\\\\\  2019-nCoV inputs //////
+  if(pathogen == "nCoV"){  
+    nCoV.c.nsamp=17
+    param.nCoV.fn=c(2.01, 2.73)
+    nCoV.fn<-function(x){pgamma(x, param.nCoV.fn[1], scale = param.nCoV.fn[2])}
+    nCoV.fnD<-function(x){dgamma(x, param.nCoV.fn[1], scale = param.nCoV.fn[2])}
+    
+    if(type==1){
+      functionpath<-nCoV.fn
+      #functionpath(x)
+    }else{
+      functionpath<-nCoV.fnD
+      #functionpath(x)
+    }
+  }
+  
   functionpath(x)
 }
 
@@ -111,6 +128,20 @@ fg.distn<-function(type,pathogen){
     d1gv=c(0.29)
   }
   
+  # \\\\\\ 2019-nCoV ///////
+  if(pathogen == "nCoV"){ 
+    # Fever study sample sizes
+    d1fn=c(74)
+    # Proportions that display fever
+    d1fv=c(0.77)
+    
+    ######## THIS NEEDS AN UPDATE! 
+    # Exposure study sample sizes
+    d1gn=c(1)
+    # Proportions with known exposure
+    d1gv=c(.1)
+  }
+  
   
   if(type=="f"){
     c(sum(d1fv*d1fn)/sum(d1fn),sum(d1fn))}else{
@@ -154,11 +185,12 @@ pdf.cdf.travel<-function(x,r0,gen.time,type){
 # ---------
 # Output infection age ditributions for either a growing or stable epidemic
 # ---------
-exposure.outcome<-function(x,pathogen,type=1,flat=0){
+exposure.outcome<-function(x,pathogen,r0 = 2,type=1,flat=0){
   #pathogen-specific median time to outcome (median exposure -> onset + onset -> outcome)
   if(pathogen == "H7N9"){f1<-3.1+4.2}
   if(pathogen == "MERS"){f1<-(5.2*7+5.5*23)/(7+23)+5}  ## (5.2*7+5.5*23)/(7+23) is a weighted average based on sample sizes of individual studies
   if(pathogen == "SARS"){f1<-6.4+4.85}
+  if(pathogen == "nCoV"){f1<-4.5+5.5}
   median=f1
   # Stable epidemic
   if(flat==1){
@@ -177,10 +209,8 @@ exposure.outcome<-function(x,pathogen,type=1,flat=0){
   }
 }
 
-# ---------
-# Use uniform random variable x to make random draw from specified infection age distribution
-# ---------
 exposure.distn<-function(x,pathogen,type=2,flat=0){
+# Use uniform random variable x to make random draw from specified infection age distribution
   a=0
   while(x>exposure.outcome(a,pathogen,type,flat)){a=a+0.1}
   a
