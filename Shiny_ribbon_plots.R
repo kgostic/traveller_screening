@@ -118,15 +118,6 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   scale_fill_manual(values = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'darksalmon'))+
   theme_minimal() +
   ylab('Prob. exposed individual is detained or cleared')+
-  xlab('Days since exposure')
+  xlab('Days since exposure') -> ribbon
 ggsave('2020_nCov/Fig1_grid_of_ribbon_plots.pdf', width = 7, height = 4.5, units = 'in')
 
-
-## Write a function to make a shiny plot here
-
-
-
-
-
-
-## Write a function to simulate the fraction of the population caught or missed in a growing epidemic.

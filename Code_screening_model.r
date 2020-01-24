@@ -28,6 +28,15 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
   #                 cleared.at.arrival]
   #           If 0 (default), the function outputs only: 
   #                 1-[cleared.at.arriva]
+  #           If 2, outputs  [stopped.at.departure.fever,
+  #                 stopped.at.departure.risk,
+  #                 stopped.at.arrival.fever,
+  #                 stopped.at.arrival.risk,
+  #                 cleared.at.arrival,
+  #                 missed.both,
+  #                 missed.fever,
+  #                 missed.risk,
+  #                 not.detectable]
   #           ALL OUTPUTS ARE GIVEN AS THE PROPORTION OF INFECTED TRAVELLERS IN EACH OUTCOME CLASS
   
 ##Define an internal function to pass travellers in any detection class
@@ -162,9 +171,9 @@ NSd.arrive = NSd.sspass.rspass
     names(outputs) = 'p.missed'
   }
   
-  if(split1==1){
+  if(split1%in%c(1,2)){
     #den1=1#cleared.at.departure
-    outputs=c(stopped.at.departure.fever,stopped.at.departure.risk,stopped.at.arrival.fever,stopped.at.arrival.risk,(cleared.at.arrival))
+    outputs=c(stopped.at.departure.fever, stopped.at.departure.risk, stopped.at.arrival.fever, stopped.at.arrival.risk,(cleared.at.arrival))
     names(outputs) = c('caught.dpt.fever', 'caught.dpt.risk', 'caught.arv.fever', 'caught.arv.risk', 'missed')
   }
   
@@ -179,6 +188,22 @@ gg1=g
 #Define the proportion of travellers that fall into each detection class (case)
 cases1 = c(ff1*gg1, ff1*(1-gg1), (1-ff1)*gg1, (1-ff1)*(1-gg1))
 
+if(split1 == 2){
+  c1 = cases1[1]*screen.cases(1) %>% as.numeric() # Had both
+  c2 = cases1[2]*screen.cases(2) %>% as.numeric() # Had fever only
+  c3 = cases1[3]*screen.cases(3) %>% as.numeric() # Had risk only
+  c4 = cases1[4]*screen.cases(4) %>% as.numeric() # Had neither (not detectable)
+  
+  return(c('caught.dpt.fever' = c1[1]+c2[1]+c3[1]+c4[1], 
+         'caught.dpt.risk'= c1[2]+c2[2]+c3[2]+c4[2], 
+         'caught.arv.fever' = c1[3]+c2[3]+c3[3]+c4[3], 
+         'caught.arv.risk' = c1[4]+c2[4]+c3[4]+c4[4], 
+         'missed.both' = c1[5],
+         'missed.fever.only' = c2[5],
+         'missed.risk.only' = c3[5],
+         'not.detectable' = c4[5]))
+}
+
 #Run the screen.cases function for the appropriate case and weight by the 
 #  appropriate proportion of travellers
 cases1[1]*screen.cases(1)+cases1[2]*screen.cases(2)+cases1[3]*screen.cases(3)+cases1[4]*screen.cases(4)
@@ -186,5 +211,10 @@ cases1[1]*screen.cases(1)+cases1[2]*screen.cases(2)+cases1[3]*screen.cases(3)+ca
 }
 
 
-
+#Case 1 = has fever and aware of risk factors
+#Case 2 = has fever and NOT aware of risk factors
+#Case 3 = does NOT have fever and aware of risk factors
+#Case 4 = does NOT have fever and NOT aware of risk factors
+#The proportion of travellers that fall into each case (detection class)
+#is determined by values of f and g
    
