@@ -1,5 +1,5 @@
 ## Estimate the incubation period distribution
-
+source('nCoV_Parmaeters.R')
 
 ## \\\\\\\\\\\\ INCUBATION PERIOD //////////////
 outsideWuhan = read.csv('2020_nCov/outside_wuhan.csv', stringsAsFactors = FALSE) 
