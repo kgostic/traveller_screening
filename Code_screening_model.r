@@ -42,7 +42,7 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
   
 ##Define an internal function to pass travellers in any detection class
   # through the model
-  screen.cases = function(case, arrival_screen, departure_screen){
+  screen.cases = function(case){
 
     #Case 1 = has fever and aware of risk factors
     #Case 2 = has fever and NOT aware of risk factors
