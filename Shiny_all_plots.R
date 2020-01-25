@@ -263,5 +263,4 @@ blank = ggplot()
 
 
 pdf('2020_nCov/arranged.pdf', width = 12, height = 12)
-grid.arrange(ribbon, blank, blank, fracMissed, stackedBars, layout_matrix = matrix(c(1,2,3,4,5,5,6,7,7,8,9,9), byrow = T, nrow = 4, ncol = 3))
-dev.off()
+grid.arrange(ribbon, blank, blank, fracMissed, stackedBars, layout_matrix = matrix(c(1,2,3,4,5,5,6,7,7,8,9,9), byrow = T, nrow = 4, ncol = 3))dev.off()

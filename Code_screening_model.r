@@ -1,7 +1,7 @@
 
 
 screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1, 
-                             phi.d, incubation.d, pathogen, relative=0, split1=0){
+                             phi.d, incubation.d, pathogen, relative=0, split1=0, arrival_screen, departure_screen){
   ## Arrival Screening Decision Tree Model
   #   INPUTS:
   #   d = days since onset
@@ -37,11 +37,12 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
   #                 missed.fever,
   #                 missed.risk,
   #                 not.detectable]
+  #         
   #           ALL OUTPUTS ARE GIVEN AS THE PROPORTION OF INFECTED TRAVELLERS IN EACH OUTCOME CLASS
   
 ##Define an internal function to pass travellers in any detection class
   # through the model
-  screen.cases = function(case){
+  screen.cases = function(case, arrival_screen, departure_screen){
 
     #Case 1 = has fever and aware of risk factors
     #Case 2 = has fever and NOT aware of risk factors
@@ -57,12 +58,12 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
   #SYMPTOM SCREEN
   #First screen symptomatic patients
   #Sd.... denotes symptom onset at departure
-  if(case == 1 | case == 2){ #If fever at onset, perform symptom screen
-    Sd.sspass = Sd*(1-sd) #(1-sd) pass                       #Move on 
-    Sd.ssfail = Sd*sd     # (sd) fail                        #Detained
-  }else{
+  if(!departure_screen | case %in% c(3,4)){          #If no departure screen, or no fever present at onset, skip symptom screen
     Sd.sspass = Sd #If no fever at onset, all pass           #Move on
     Sd.ssfail = 0                                            #Detained
+  }else{                                             #If fever at onset, perform symptom screen
+    Sd.sspass = Sd*(1-sd) #(1-sd) pass                       #Move on 
+    Sd.ssfail = Sd*sd     # (sd) fail                        #Detained
   }
 
   #No symptom screen for asymptomatic patients (all pass)
@@ -72,18 +73,18 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
   
   
   ## RISK SCREEN - only those in sspass categories move on
-  if(case == 1 | case == 3){ #If passengers are aware of risk factors, perform screen
+  if(!departure_screen | case %in% c(2,4)){        ## Don't screen
+    Sd.sspass.rspass = Sd.sspass                        # Move on
+    Sd.sspass.rsfail = 0                                # Detained
+    NSd.sspass.rspass = NSd.sspass                      # Move on
+    NSd.sspass.rsfail = 0                               # Detained
+  }else{                                            ## Do screen
     Sd.sspass.rspass = Sd.sspass*(1-rd)                  # Move on
     Sd.sspass.rsfail = Sd.sspass*rd                      # Detained
     NSd.sspass.rspass = NSd.sspass*(1-rd)                # Move on
     NSd.sspass.rsfail = NSd.sspass*rd                    # Detained
-    
-  }else{ #If passengers are not aware of risk factors, all pass
-    Sd.sspass.rspass = Sd.sspass                           # Move on
-    Sd.sspass.rsfail = 0                                   # Detained
-    NSd.sspass.rspass = NSd.sspass                         # Move on
-    NSd.sspass.rsfail = 0                                  # Detained
   }
+
   
   ### \\\\\\\\\\\\\\\\\\\\\\\\\\\\ FLIGHT TAKES OFF /////////////////////////////// ###
   #TOTAL FLYING AND DETAINED
@@ -114,18 +115,18 @@ NSd.arrive = NSd.sspass.rspass
   
   #SYMPTOM SCREEN
   #First screen symptomatic patients
-  if(case == 1 | case == 2){ #If fever at onset, perform symptom screen
-    Sd.arrive.sspass = Sd.arrive*(1-sa)    #(1-sa) pass                      #Move on 
-    Sd.arrive.ssfail = Sd.arrive*sa        # (sa) faill                      #Detained
-    Sa.arrive.sspass = Sa.arrive*(1-sa)                                      #Move on
-    Sa.arrive.ssfail = Sa.arrive*sa                                          #Detained
-    
-  }else{ #If no fever at onset (cases 3, 4) all pass
+  if(!arrival_screen | case %in% c(3,4)){          #If no arrival screen, or no fever present at onset, skip symptom screen
     Sd.arrive.sspass = Sd.arrive                                             #Move on 
     Sd.arrive.ssfail = 0                                                     #Detained
     Sa.arrive.sspass = Sa.arrive                                             #Move on
     Sa.arrive.ssfail = 0                                                     #Detained
+  }else{                                            # Do screen
+    Sd.arrive.sspass = Sd.arrive*(1-sa)    #(1-sa) pass                      #Move on 
+    Sd.arrive.ssfail = Sd.arrive*sa        # (sa) faill                      #Detained
+    Sa.arrive.sspass = Sa.arrive*(1-sa)                                      #Move on
+    Sa.arrive.ssfail = Sa.arrive*sa                                          #Detained
   }
+  
   
   #No symptom screen for asymptomatic patients (all pass)
   NS.arrive.sspass = NS.arrive                                                   #Move on
@@ -133,21 +134,20 @@ NSd.arrive = NSd.sspass.rspass
   
   
   #RISK SCREEN
-  if(case == 1 | case == 3){ #If passengers are aware of risk factors, perform screen
-    Sd.arrive.sspass.rspass = Sd.arrive.sspass*(1-ra)                    # Move on
-    Sd.arrive.sspass.rsfail = Sd.arrive.sspass*ra                        # Detained
-    Sa.arrive.sspass.rspass = Sa.arrive.sspass*(1-ra)                    # Move on
-    Sa.arrive.sspass.rsfail = Sa.arrive.sspass*ra                        # Detained
-    NS.arrive.sspass.rspass = NS.arrive.sspass*(1-ra)                    # Move on
-    NS.arrive.sspass.rsfail = NS.arrive.sspass*ra                        # Detained
-    
-  }else{ #If passengers are not aware of risk factors, all pass
+  if(!arrival_screen | case %in% c(2,4)){          #If no arrival screen, or no risk awareness, don't screen
     Sd.arrive.sspass.rspass = Sd.arrive.sspass                           # Move on
     Sd.arrive.sspass.rsfail = 0                                          # Detained
     Sa.arrive.sspass.rspass = Sa.arrive.sspass                           # Move on
     Sa.arrive.sspass.rsfail = 0                                          # Detained
     NS.arrive.sspass.rspass = NS.arrive.sspass                           # Move on
     NS.arrive.sspass.rsfail = 0                                          # Detained
+  }else{                                           #If passengers are aware of risk factors, perform screen
+    Sd.arrive.sspass.rspass = Sd.arrive.sspass*(1-ra)                    # Move on
+    Sd.arrive.sspass.rsfail = Sd.arrive.sspass*ra                        # Detained
+    Sa.arrive.sspass.rspass = Sa.arrive.sspass*(1-ra)                    # Move on
+    Sa.arrive.sspass.rsfail = Sa.arrive.sspass*ra                        # Detained
+    NS.arrive.sspass.rspass = NS.arrive.sspass*(1-ra)                    # Move on
+    NS.arrive.sspass.rsfail = NS.arrive.sspass*ra                        # Detained
   }
   
   
