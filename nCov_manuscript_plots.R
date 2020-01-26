@@ -478,15 +478,18 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   mutate(fever = factor(fever, levels = unique(fever), labels = paste0('P(symptomatic) ', unique(fever))),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr', 'nd')), 
-                          labels =(rev(cat.labels)))) %>%
+                          labels =(rev(cat.labels)))) -> rib
   ## Plot
   ## Plot
-  ggplot()+
+  blackline <- filter(rib,outcome=="detected: arrival risk screen")
+  ggplot(rib)+
   geom_ribbon(aes(x = days.since.exposed, ymin = yymin, ymax = yymax, fill = outcome))+
   facet_grid(fever~meanIncubate) +
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
-  ylab('Prob. exposed individual is detained or cleared')+
+  geom_line(data=blackline,aes(x=days.since.exposed,y=yymax),lty=2)+
+  ylab('Percentage of exposed individuals detained or cleared')+
+  scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2_grid_of_ribbon_plots.png', width = 8, height = 4.5, units = 'in')
 
