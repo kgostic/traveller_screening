@@ -315,7 +315,8 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
              'missed.both' = c1[5],
              'missed.fever.only' = c2[5],
              'missed.risk.only' = c3[6]+c1[6],
-             'not.detectable' = c4[6]+c2[6]))
+             'not.yet.detectable' = c2[6],
+             'not.detectable' = c4[6]))
   }
   
   #Run the screen.cases function for the appropriate case and weight by the 
@@ -451,7 +452,8 @@ make_plots = function(meanIncubate, meanToAdmit, R0, ff, gg, flight.hrs, screenT
            mbMin = aRiskMax, mbMax = mbMin+missed.both,
            mfMin = mbMax, mfMax = mfMin+missed.fever.only,
            mrMin = mfMax, mrMax = mrMin+missed.risk.only,
-           ndMin = mrMax, ndMax = 1) %>%
+           nydMin = mrMax, nydMax = nydMin+not.yet.detectable,
+           ndMin = nydMax, ndMax = ndMin+not.detectable) %>%
     select(days.since.exposed, contains('Min'), contains('Max')) %>%
     ## Pivot to long data frame
     pivot_longer(cols = dFeverMin:ndMax, names_to = c('outcome', 'minOrMax'), names_pattern = '(\\w+)(M\\w\\w)', values_to = 'yy') -> temp
@@ -459,17 +461,17 @@ make_plots = function(meanIncubate, meanToAdmit, R0, ff, gg, flight.hrs, screenT
   full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by = c('days.since.exposed', 'outcome'), suffix = c('min', 'max'))%>%
     select(-starts_with('min')) %>% 
     ## Clean up categorical variables so that plot labels are publication quality 
-    mutate(outcome = factor(outcome, levels =c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr', 'nd'), 
-                            labels =(c('stopped: departure fever screen', "stopped: departure risk screen", "stoppd: arrival fever screen",
-                                       "stopped: arrival risk screen", 'cleared: missed both', 'cleared: missed fever', 'cleared: missed risk', 'cleared: not detectable')))) %>%
+    mutate(outcome = factor(outcome, levels =c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr', 'nyd', 'nd'), 
+                            labels =(c('stopped: departure fever screen', "stopped: departure risk screen", "stopped: arrival fever screen",
+                                       "stopped: arrival risk screen", 'cleared: missed both', 'cleared: missed fever', 'cleared: missed risk', 'undetectable: not yet febrile, unaware of exposure', 'undetectable: mild case, unaware of exposure')))) %>%
     ## Plot
     ggplot()+
     geom_ribbon(aes(x = days.since.exposed, ymin = yymin, ymax = yymax, fill = outcome))+
     scale_fill_manual(values = cols)+
     theme_minimal() +
     ylab('Prob. exposed individual is detained or cleared')+
-    xlab('Days since exposure') +
-    theme(legend.position = 'none')-> ribbon
+    xlab('Days since exposure') -> ribbon
+    #theme(legend.position = 'none')
   
   
   ## Generate a range of par combos to test
