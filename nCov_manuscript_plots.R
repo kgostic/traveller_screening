@@ -23,7 +23,8 @@ nboot = 1000        # n sim samples
 popn = 100        # population size of infected travelers
 #Growing (0) or flat (1) epidemic
 flatA=0
-scale.in = 1.91
+scale.in = 1.8
+mToAdmit = 4.5 ## days from onset to hospitalization. (Assume people don't travel after admit)
 
 
 cat.labels = c('detected: departure fever screen', "detected: departure risk screen", "detected: arrival fever screen",
@@ -445,7 +446,7 @@ input_grid = expand.grid(ffs = c(.5, .75, .98),                  ## Set grid of 
                          meanIncs = c(3, 5, 7))
 gridWrapper = function(ff.in, mInc.in){
   incFun = function(x){pgamma(x, shape = mInc.in/scale.in, scale = scale.in)}
-  get_frac_caught_over_time(ff = ff.in, gg = 0.2, R0 = 2, meanToAdmit = 4.5, ascreen = TRUE, dscreen = TRUE, incubation.d = incFun, frac_evaded = 0)
+  get_frac_caught_over_time(ff = ff.in, gg = 0.2, R0 = 2, meanToAdmit = mToAdmit, ascreen = TRUE, dscreen = TRUE, incubation.d = incFun, frac_evaded = 0)
 }
 
 
@@ -495,7 +496,7 @@ ggsave('2020_nCov/Fig2_grid_of_ribbon_plots.png', width = 8, height = 4.5, units
 ## Fig 2. Supplemtary figure 1. Departure screening only.
 gridWrapper = function(ff.in, mInc.in){
   incFun = function(x){pgamma(x, shape = mInc.in/scale.in, scale = scale.in)}
-  get_frac_caught_over_time(ff = ff.in, gg = 0.2, R0 = 2, meanToAdmit = 4.5, ascreen = FALSE, dscreen = TRUE, incubation.d = incFun, frac_evaded = 0)
+  get_frac_caught_over_time(ff = ff.in, gg = 0.2, R0 = 2, meanToAdmit = mToAdmit, ascreen = FALSE, dscreen = TRUE, incubation.d = incFun, frac_evaded = 0)
 }
 apply(X = input_grid, MARGIN = 1, FUN = function(ii){gridWrapper(ii[1], ii[2])}) %>%                                                                
   bind_rows() %>% as.tbl() %>%
@@ -520,7 +521,7 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0('Fraction symptomatic', unique(fever))),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = unique(fever), labels = paste0('P(symptomatic)', unique(fever))),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr','nd')), 
                           labels =(rev(cat.labels)))) %>%
@@ -541,7 +542,7 @@ ggsave('2020_nCov/Fig2S1_grid_of_ribbon_plots_departure_only.png', width = 8, he
 ## Fig 2. Supplemtary figure 2. Arrival screening only.
 gridWrapper = function(ff.in, mInc.in){
   incFun = function(x){pgamma(x, shape = mInc.in/scale.in, scale = scale.in)}
-  get_frac_caught_over_time(ff = ff.in, gg = 0.2, R0 = 2, meanToAdmit = 4.5, ascreen = TRUE, dscreen = FALSE, incubation.d = incFun, frac_evaded = 0)
+  get_frac_caught_over_time(ff = ff.in, gg = 0.2, R0 = 2, meanToAdmit = mToAdmit, ascreen = TRUE, dscreen = FALSE, incubation.d = incFun, frac_evaded = 0)
 }
 apply(X = input_grid, MARGIN = 1, FUN = function(ii){gridWrapper(ii[1], ii[2])}) %>%                                                                
   bind_rows() %>% as.tbl() %>%
@@ -567,7 +568,7 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0('Fraction symptomatic', unique(fever))),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = unique(fever), labels = paste0('P(symptomatic)', unique(fever))),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr','nd')), 
                           labels =(rev(cat.labels)))) %>%
@@ -601,7 +602,7 @@ data.frame(par = factor(names(low.vals)[-4], levels = names(low.vals[-4]), label
   mutate(labs = sprintf('%2.2f-%2.2f', lows, highs)) %>%
   ggplot()+
   geom_segment(aes(x = lows, xend = highs, y = par, yend = par), size = 2, color = 'darkblue') +
-  geom_text(aes(x = (lows+highs)/2, y = as.numeric(par)+.2, label = labs, hjust = 0.5))+
+  geom_text(aes(x = (lows+highs)/2, y = as.numeric(par)+.2, label = labs, hjust = 0.5), size = 2.5)+
   theme_bw() +
   xlab('Assumed range')+
   ylab('Parameter') -> parRanges
@@ -617,6 +618,7 @@ as.data.frame(gammaFits) %>%
   geom_line(aes(x = x, y = value, color = variable), size = .6, alpha = .5, show.legend = TRUE)+
   xlab('days')+
   ylab('density')+
+  scale_color_discrete(name='mean days \nincubation')+
   theme_classic() -> incPeriods
   
 
@@ -624,7 +626,7 @@ as.data.frame(gammaFits) %>%
 
 
 ## Simulate
-reset = FALSE
+reset = TRUE
 ## Get outcomes for both arrival and departure
 if(!file.exists('bootList_ad.RData')|reset){
 bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE)}
@@ -730,8 +732,8 @@ data.frame(departure.only = sapply(bootList_d[2,], function(yy){yy}),
     guides(fill=guide_legend(nrow = 4))+
     theme(legend.position = 'bottom') -> stackedBars
   
-  png(filename = '2020_nCov/Fig3S1_parRanges.png', width = 7, height = 4.5, units = 'in', res = 480)
-  grid.arrange(parRanges, incPeriods, nrow = 1, ncol = 2)
+  png(filename = '2020_nCov/Fig3S1_parRanges.png', width = 5.5, height = 7, units = 'in', res = 480)
+  grid.arrange(parRanges, incPeriods, nrow = 2, ncol = 1)
   dev.off()
   
   png('2020_nCov/Fig3_populationOutcomes.png', width = 7, height = 7, units = 'in', res = 480)

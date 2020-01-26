@@ -3,8 +3,9 @@ source('nCoV_Parmaeters.R')
 
 ## \\\\\\\\\\\\ INCUBATION PERIOD //////////////
 outsideWuhan = read.csv('2020_nCov/outside_wuhan.csv', stringsAsFactors = FALSE) 
+
 outsideWuhan %>% 
-  select(age, sex, date_onset_symptoms, date_admission_hospital, date_arrive_Wuhan, date_depart_Wuhan) %>%
+  select(age, sex, date_onset_symptoms, date_admission_hospital, date_arrive_Wuhan, date_depart_Wuhan, city, province, Home, source) %>%
   filter(date_arrive_Wuhan != "" & date_depart_Wuhan != "") %>%
   mutate_at(vars(starts_with('date')), to_date_outsideWuhan) %>%
   mutate(max_incubation = (date_onset_symptoms-date_arrive_Wuhan) %>% as.numeric(),
@@ -17,10 +18,14 @@ incubationPeriods$date_depart_Wuhan[fixid] = incubationPeriods$date_onset_sympto
 incubationPeriods %>% ungroup() %>%
   mutate(mid_incubation = (min_incubation + max_incubation)/2 ,
          id = 1:nrow(.)) -> incubationPeriods
+write.csv(x = incubationPeriods, file = '2020_nCov/known_exposures.csv', row.names = FALSE)
+
+
 
 
 ## Bootstrap to represent possible times of incubation
 nBoot = 100
+set.seed(30)
 incubationPeriods[sample(incubationPeriods$id, size = nBoot, replace = TRUE),] %>%  ## Sample individual rows. Times of onset should be known.
                     rowwise() %>%
                     mutate(date_exposed = if(exact == TRUE){
@@ -152,7 +157,7 @@ iBoot %>% rowwise() %>%
   geom_line(data = incubationFits, aes(x = xx, y = yy, color = fit)) +
   ggtitle('Bootstrapped incubation period') +
   ylab('density')
-ggsave('2020_nCov/incubation_pd_bootstrap.png', width = 5, height = 5, units = 'in', dpi = 320)
+ggsave('2020_nCov/incubation_pd_bootstrap.png', width = 5, height = 4, units = 'in', dpi = 320)
 
 
 sprintf('The mean incubation period is %2.1f days, with sd %2.2f. The upper bound is %2.1f days and the lower bound is %2.1f days',
