@@ -2,6 +2,7 @@ library(ggplot2)
 library(grid)
 library(gridExtra)
 library(tidyverse)
+library(pomp)
 cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'darksalmon', 'brown3', 'firebrick1')
 
 
@@ -281,8 +282,13 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
     
     if(split1%in%c(1,2)){
       #den1=1#cleared.at.departure
-      outputs=c(stopped.at.departure.fever, stopped.at.departure.risk, stopped.at.arrival.fever, stopped.at.arrival.risk,(cleared.at.arrival))
-      names(outputs) = c('caught.dpt.fever', 'caught.dpt.risk', 'caught.arv.fever', 'caught.arv.risk', 'missed')
+      if(case %in% c(1,2)){ ## If symptoms could have developed
+        outputs=c(stopped.at.departure.fever, stopped.at.departure.risk, stopped.at.arrival.fever, stopped.at.arrival.risk, 
+                  Sd.arrive.sspass.rspass+Sa.arrive.sspass.rspass, NS.arrive.sspass.rspass)
+      }else{
+      outputs=c(stopped.at.departure.fever, stopped.at.departure.risk, stopped.at.arrival.fever, stopped.at.arrival.risk, 0, cleared.at.arrival)
+      }
+      names(outputs) = c('caught.dpt.fever', 'caught.dpt.risk', 'caught.arv.fever', 'caught.arv.risk', 'missed.sd', 'missed.nsd')
     }
     
     return(outputs)
@@ -308,8 +314,8 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
              'caught.arv.risk' = c1[4]+c2[4]+c3[4]+c4[4], 
              'missed.both' = c1[5],
              'missed.fever.only' = c2[5],
-             'missed.risk.only' = c3[5],
-             'not.detectable' = c4[5]))
+             'missed.risk.only' = c3[6]+c1[6],
+             'not.detectable' = c4[6]+c2[6]))
   }
   
   #Run the screen.cases function for the appropriate case and weight by the 
@@ -358,15 +364,10 @@ get_frac_caught_over_time = function(ff, gg, R0, meanToAdmit, ascreen, dscreen, 
 
 # -------------------------------
 # Simulate the fraction of the population caught or missed in a growing epidemic.
-one_bootstrap = function(meanInc, R0, ff, gg, del.d, arrival_screen, departure_screen){
+one_bootstrap = function(meanInc, R0, f0, g0, f.sens, g.sens, gg, del.d, as, ds){
   ## For each individual in the population, draw times since exposure from the appropriate distribution
   infAge=sapply(c(1:popn),function(x){exposure.distn(runif(1, 0, 1),pathogen,flat=0)})
-  
-  f0 = runif(1, min = max(ff-.1,0), max = min(ff+.1, 1))                                    ## Draw prob fever
-  g0 = runif(1, min = max(gg-.1,0), max = min(gg+.1, 1))                                    ## Draw prob risk
-  f.sens = runif(1, .5, 1)                                                                  ## Draw fever sensitivity
-  g.sens = runif(1, .1, .5)                                                                 ## Draw risk sensitivity
-  meanInc = runif(1, meanIncubate-1.5, meanIncubate+1.5)                                    ## Draw mean incubation period from a uniform distribution spanning 1.5 days on either side of the assumed mean
+
   this.inc.cdf = (function(x){pgamma(q = x, shape = meanInc/2.11, scale = 2.11)})           ## Set incubation period distribution
   
   ## Fever and risk screening
@@ -374,7 +375,7 @@ one_bootstrap = function(meanInc, R0, ff, gg, del.d, arrival_screen, departure_s
   #   f0=rbinom(1,fever.sample.size,fever.prob)/fever.sample.size                                 ## Draw binomial probability of fever
   #   g0=rbinom(1,risk.sample.size, risk.prob)/risk.sample.size                                   ## Draw binomial probability of known risk  
   #   screenWrapper(x, f0, g0)})           
-  outcomesBoth=sapply(infAge, FUN = function(x){screen.passengers(x, del.d, f0, g0, f.sens, f.sens, g.sens, g.sens, 0, this.inc.cdf, pathogen, relative = 0, split1 = 2, arrival_screen, departure_screen)})
+  outcomesBoth=sapply(infAge, FUN = function(x){screen.passengers(x, del.d, f0, g0, f.sens, f.sens, g.sens, g.sens, 0, this.inc.cdf, pathogen, relative = 0, split1 = 2, arrival_screen=as, departure_screen=ds)})
   ## Output individual probability missed
   pCaught_both = colSums(outcomesBoth[1:4,])
   caughtBoth = sapply(pCaught_both,function(x){ifelse(x<runif(1, 0, 1),0,1)})                   ## Draw whether individual was missed
@@ -417,7 +418,7 @@ one_bootstrap = function(meanInc, R0, ff, gg, del.d, arrival_screen, departure_s
                          frac.missed.risk = 1- sum(caughtRisk)/popn)))
 }
 # ## Test
-# one_bootstrap(meanInc = 5.5, R0 = 2,ff = .7, gg = .1, del.d = 1, arrival_screen = TRUE, departure_screen = FALSE)
+# one_bootstrap(meanInc = 5.5, R0 = 2,f0 = .7, g0 = .1, f.sens = .7, g.sens = .2, del.d = 1, as = TRUE, ds = FALSE)
 # -------------------------------
 
 
@@ -470,7 +471,21 @@ make_plots = function(meanIncubate, meanToAdmit, R0, ff, gg, flight.hrs, screenT
     xlab('Days since exposure') +
     theme(legend.position = 'none')-> ribbon
   
-  replicate(n = nboot, one_bootstrap(meanIncubate, R0, ff, gg, del.d, arrival_screen, departure_screen)) -> bootList
+  
+  ## Generate a range of par combos to test
+  ## Use Latin Hypercube Sampling to span plausible parameter ranges
+  parsets = sobolDesign(lower = c(ff = .5, gg = .05, f.sens = .6, g.sens = .1, mInc = 3),
+                        upper = c(ff = .95, gg = .5, f.sens = .95, g.sens = .5, mInc = 7),
+                        nseq = nboot)
+  
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc){ one_bootstrap(meanInc = mInc, R0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=del.d, as=arrival_screen, ds=departure_screen)}
+  ## Simulate one population for each plausible paramter set
+  mapply(FUN = bootWrapper,
+         f.in = parsets$ff,
+         g.in = parsets$gg,
+         f.sens = parsets$f.sens,
+         g.sens = parsets$g.sens,
+         mInc = parsets$mInc) -> bootList
   
   # -------------------------------
   ### Fraction missed
