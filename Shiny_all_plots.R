@@ -3,7 +3,7 @@ library(grid)
 library(gridExtra)
 library(tidyverse)
 library(pomp)
-cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'darksalmon', 'brown3', 'firebrick1')
+cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'darksalmon', 'saddlebrown', 'lightpink', 'firebrick1', 'darkorange')
 
 
 ## ------------------------------------------------------------
@@ -110,7 +110,7 @@ exposure.distn<-function(x,pathogen,type=2,flat=0){
 
 ## --------------
 screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1, 
-                             phi.d, incubation.d, pathogen, relative=0, split1=0, arrival_screen, departure_screen){
+                             phi.d, incubation.d, pathogen, relative=0, split1=0, arrival_screen, departure_screen, frac_evade=0){
   ## Arrival Screening Decision Tree Model
   #   INPUTS:
   #   d = days since onset
@@ -300,7 +300,7 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
   gg1=g
   
   #Define the proportion of travellers that fall into each detection class (case)
-  cases1 = c(ff1*gg1, ff1*(1-gg1), (1-ff1)*gg1, (1-ff1)*(1-gg1))
+  cases1 = c((1-frac_evade)*c(ff1*gg1, ff1*(1-gg1), (1-ff1)*gg1, (1-ff1)*(1-gg1)))
   
   if(split1 == 2){
     c1 = cases1[1]*screen.cases(1) %>% as.numeric() # Had both
@@ -316,7 +316,8 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
              'missed.fever.only' = c2[5],
              'missed.risk.only' = c3[6]+c1[6],
              'not.yet.detectable' = c2[6],
-             'not.detectable' = c4[6]))
+             'not.detectable' = c4[6],
+             'evaded.screening' = frac_evade))
   }
   
   #Run the screen.cases function for the appropriate case and weight by the 
@@ -329,7 +330,7 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
 
 # -------------------------------
 #get_frac_caught = function(tSinceExposed, ff, gg, R0, meanToAdmit, meanIncubate = NULL, dscreen, ascreen, shapeIncubate = NULL, scaleIncubate = 2.73){
-get_frac_caught = function(tSinceExposed, ff, gg, R0, meanToAdmit, dscreen, ascreen, incubation.d){
+get_frac_caught = function(tSinceExposed, ff, gg, R0, meanToAdmit, dscreen, ascreen, incubation.d, frac_evaded){
   ## Calculate the fraction/probability of each screening outcome given a fixed time since exposure
   ## INPUTS
   ## f1 - probability of fever at onset
@@ -346,7 +347,7 @@ get_frac_caught = function(tSinceExposed, ff, gg, R0, meanToAdmit, dscreen, ascr
   # # Get probability that symptoms have developed.
   # incubation.d<-(function(d)pgamma(d, shape = shapeIncubate, scale = scaleIncubate))
   ## Outputs
-  screen.passengers(tSinceExposed, del.d, ff, gg, sd, sa, rd, ra, phi.d, incubation.d, pathogen, relative = 0, split1 = 2, arrival_screen = ascreen, departure_screen = dscreen)
+  screen.passengers(tSinceExposed, del.d, ff, gg, sd, sa, rd, ra, phi.d, incubation.d, pathogen, relative = 0, split1 = 2, arrival_screen = ascreen, departure_screen = dscreen, frac_evaded)
 }
 # ## Test function
 # get_frac_caught(tSinceExposed = 2, ff = .7, gg = .2, R0 = 2, meanToAdmit = 5.5, dscreen = TRUE, ascreen = FALSE, incubation.d)
@@ -354,7 +355,7 @@ get_frac_caught = function(tSinceExposed, ff, gg, R0, meanToAdmit, dscreen, ascr
 
 # -------------------------------
 ## Write a function that repeats get_frac_caught over a grid of times since exposure
-get_frac_caught_over_time = function(ff, gg, R0, meanToAdmit, ascreen, dscreen, incubation.d){
+get_frac_caught_over_time = function(ff, gg, R0, meanToAdmit, ascreen, dscreen, incubation.d, frac_evaded = 0){
   arrive.times=seq(0,15,0.1)
   sapply(arrive.times, function(tt){get_frac_caught(tSinceExposed = tt, ff, gg, R0, meanToAdmit, dscreen, ascreen,incubation.d)}) %>% t() %>% as.data.frame() %>% mutate(
     days.since.exposed = arrive.times)
@@ -453,7 +454,8 @@ make_plots = function(meanIncubate, meanToAdmit, R0, ff, gg, flight.hrs, screenT
            mfMin = mbMax, mfMax = mfMin+missed.fever.only,
            mrMin = mfMax, mrMax = mrMin+missed.risk.only,
            nydMin = mrMax, nydMax = nydMin+not.yet.detectable,
-           ndMin = nydMax, ndMax = ndMin+not.detectable) %>%
+           ndMin = nydMax, ndMax = ndMin+not.detectable,
+           ndeMin = ndMax, ndeMax = ndeMin+evaded.screening) %>%
     select(days.since.exposed, contains('Min'), contains('Max')) %>%
     ## Pivot to long data frame
     pivot_longer(cols = dFeverMin:ndMax, names_to = c('outcome', 'minOrMax'), names_pattern = '(\\w+)(M\\w\\w)', values_to = 'yy') -> temp
@@ -461,9 +463,9 @@ make_plots = function(meanIncubate, meanToAdmit, R0, ff, gg, flight.hrs, screenT
   full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by = c('days.since.exposed', 'outcome'), suffix = c('min', 'max'))%>%
     select(-starts_with('min')) %>% 
     ## Clean up categorical variables so that plot labels are publication quality 
-    mutate(outcome = factor(outcome, levels =c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr', 'nyd', 'nd'), 
+    mutate(outcome = factor(outcome, levels =c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr', 'nyd', 'nd', 'nde'), 
                             labels =(c('stopped: departure fever screen', "stopped: departure risk screen", "stopped: arrival fever screen",
-                                       "stopped: arrival risk screen", 'cleared: missed both', 'cleared: missed fever', 'cleared: missed risk', 'undetectable: not yet febrile, unaware of exposure', 'undetectable: mild case, unaware of exposure')))) %>%
+                                       "stopped: arrival risk screen", 'cleared: missed both', 'cleared: missed fever', 'cleared: missed risk', 'undetectable: not yet febrile, unaware of exposure', 'undetectable: mild case, unaware of exposure', 'undetectable: evaded screening')))) %>%
     ## Plot
     ggplot()+
     geom_ribbon(aes(x = days.since.exposed, ymin = yymin, ymax = yymax, fill = outcome))+
