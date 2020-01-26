@@ -1,0 +1,22 @@
+"age","sex","date_onset_symptoms","date_admission_hospital","date_arrive_Wuhan","date_depart_Wuhan","city","province","Home","source","max_incubation","min_incubation","exact","mid_incubation","id"
+37,"male",2020-01-14,2020-01-20,2020-01-10,2020-01-11,"Fengtai district","Beijing","Beijing","http://news.xmnn.cn/xmnn/2020/01/22/100656796.shtml",4,3,FALSE,3.5,1
+39,"male",2020-01-09,2020-01-14,2020-01-03,2020-01-04,"Haidian district","Beijing","Beijing","http://news.xmnn.cn/xmnn/2020/01/22/100656796.shtml",6,5,FALSE,5.5,2
+32,"female",2020-01-17,2020-01-20,2020-01-13,2020-01-17,"Haidian district","Beijing","Beijing","http://news.xmnn.cn/xmnn/2020/01/22/100656796.shtml",4,0,FALSE,2,3
+18,"female",2020-01-19,2020-01-20,2020-01-12,2020-01-17,"Tongzhou district","Beijing","Beijing","http://news.xmnn.cn/xmnn/2020/01/22/100656796.shtml",7,2,FALSE,4.5,4
+56,"female",2020-01-16,2020-01-20,2020-01-08,2020-01-16,"Xicheng district","Beijing","Beijing","http://news.xmnn.cn/xmnn/2020/01/22/100656796.shtml",8,0,FALSE,4,5
+35,"male",2020-01-16,2020-01-16,2020-01-08,2020-01-11,"","Shanghai","Shanghai","http://wsjkw.sh.gov.cn/xwfb/20200121/8fa3da87b0014c9db1308c76cbfe835f.html",8,5,FALSE,6.5,6
+66,"male",2020-01-03,2020-01-04,2019-12-29,2020-01-03,"Shenzhen","Guangdong","","http://www.bjnews.com.cn/news/2020/01/20/676734.html and http://wsjkw.gd.gov.cn/zwyw_yqxx/content/post_2876057.html",5,0,FALSE,2.5,7
+40,"male",2020-01-14,2020-01-19,2020-01-13,2020-01-13,"Fushun","Liaoning","Xiantao","http://www.bjnews.com.cn/news/2020/01/22/677946.html",1,1,TRUE,1,8
+38,"male",2020-01-20,2020-01-20,2020-01-18,2020-01-18,"Weihai","Shandong","Zhejiang ","http://www.bjnews.com.cn/news/2020/01/22/678127.html",2,2,TRUE,2,9
+62,"female",2020-01-21,2020-01-21,2019-12-29,2020-01-15,"Linyi","Shandong","Linyi","http://www.sohu.com/a/368573184_120214181",23,6,FALSE,14.5,10
+65,"male",2020-01-21,2020-01-21,2019-12-29,2020-01-15,"Linyi","Shandong","Linyi","http://www.sohu.com/a/368573184_120214181",23,6,FALSE,14.5,11
+43,"male",2020-01-18,2020-01-21,2020-01-11,2020-01-17,"Lanzhou","Gansu","","https://www.thepaper.cn/newsDetail_forward_5610903",7,1,FALSE,4,12
+45,"male",2020-01-19,2020-01-21,2020-01-11,2020-01-14,"Shijingshan district","Beijing","","",8,5,FALSE,6.5,13
+45,"male",2020-01-19,2020-01-21,2020-01-11,2020-01-14,"Shijingshan district","Beijing","","",8,5,FALSE,6.5,14
+42,"male",2020-01-20,2020-01-20,2020-01-11,2020-01-19,"Xicheng district","Beijing","","",9,1,FALSE,5,15
+NA,"male",2020-01-13,NA,2020-01-07,2020-01-07,"","","","http://weekly.chinacdc.cn/news/TrackingtheEpidemic.htm#NHCJan23",6,6,TRUE,6,16
+NA,"male",2020-01-14,NA,2020-01-09,2020-01-09,"","","","http://weekly.chinacdc.cn/news/TrackingtheEpidemic.htm#NHCJan23",5,5,TRUE,5,17
+65,"female",2020-01-03,2020-01-10,2019-12-29,2020-01-03,"","","Shenzhen","Chan et al., Lancet, 2020",5,0,FALSE,2.5,18
+66,"male",2020-01-04,2020-01-10,2019-12-29,2020-01-04,"","","Shenzhen","Chan et al., Lancet, 2020",6,0,FALSE,3,19
+37,"female",2020-01-02,2020-01-11,2019-12-29,2020-01-02,"","","Shenzhen","Chan et al., Lancet, 2020",4,0,FALSE,2,20
+36,"male",2020-01-01,2020-01-11,2019-12-29,2020-01-01,"","","Shenzhen","Chan et al., Lancet, 2020",3,0,FALSE,1.5,21

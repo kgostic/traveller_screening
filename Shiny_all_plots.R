@@ -31,26 +31,6 @@ flatA=0
 ## \\\\\\\\\\\\\\ DEFINE FUNCTIONS ////////////////// ##
 ## -----------------------------------------------------
 
-# --------------
-# Distributions for fever and known exposure
-# --------------
-fg.distn<-function(type,pathogen){
-  # Fever study sample sizes
-  d1fn=c(74)
-  # Proportions that display fever
-  d1fv=c(0.77)
-  
-  ######## THIS NEEDS AN UPDATE! 
-  # Exposure study sample sizes
-  d1gn=c(1)
-  # Proportions with known exposure
-  d1gv=c(.1)
-  
-  if(type=="f"){
-    c(sum(d1fv*d1fn)/sum(d1fn),sum(d1fn))}else{
-      c(sum(d1gv*d1gn)/sum(d1gn),sum(d1gn))}
-}
-
 # ---------
 # Calculate infection age distributions for a growing epidemic
 pdf.cdf.travel<-function(x,r0,gen.time,type){
@@ -70,41 +50,15 @@ pdf.cdf.travel<-function(x,r0,gen.time,type){
 ## --------------
 
 
-## --------------
-exposure.outcome<-function(x,pathogen,r0 = 2,type=1,flat=0){
-  #pathogen-specific median time to outcome (median exposure -> onset + onset -> outcome)
-  if(pathogen == "H7N9"){f1<-3.1+4.2}
-  if(pathogen == "MERS"){f1<-(5.2*7+5.5*23)/(7+23)+5}  ## (5.2*7+5.5*23)/(7+23) is a weighted average based on sample sizes of individual studies
-  if(pathogen == "SARS"){f1<-6.4+4.85}
-  if(pathogen == "nCoV"){f1<-4.5+5.5}
-  median=f1
-  # Stable epidemic
-  if(flat==1){
-    if(type==1){
-      ifelse(x<=f1,1/(f1),0) #pdf
-    }else{
-      ifelse(x<=f1,x/(f1),1) #cdf
-    }
-  }else{
-    # Growing epidemic
-    if(type==1){
-      pdf.cdf.travel(x,r0,median,type)
-    }else{
-      pdf.cdf.travel(x,r0,median,type)
-    }
-  }
+## -------------------------
+exposure.distn = function(x,r0, meanToAdmit, meanIncubate){
+  ## Draw from the infection age cdf using an input uniform random variable, x
+  (data.frame(xx = seq(0, 25, by = 0.1)) %>%             # Evaluate cdf at a range of values
+     mutate(c.dens = pdf.cdf.travel(xx, r0, meanToAdmit+meanIncubate, type = 2)) %>%
+     filter(c.dens>x) %>%                                # Extract the first value at which the cum.dens > x
+     pull(xx))[1]
 }
-## --------------
-
-
-## --------------
-exposure.distn<-function(x,pathogen,type=2,flat=0){
-  # Use uniform random variable x to make random draw from specified infection age distribution
-  a=0
-  while(x>exposure.outcome(a,pathogen,type,flat)){a=a+0.1}
-  a
-}
-## --------------
+## -------------------------
 
 
 
@@ -357,11 +311,11 @@ get_frac_caught = function(tSinceExposed, ff, gg, R0, meanToAdmit, dscreen, ascr
 ## Write a function that repeats get_frac_caught over a grid of times since exposure
 get_frac_caught_over_time = function(ff, gg, R0, meanToAdmit, ascreen, dscreen, incubation.d, frac_evaded = 0){
   arrive.times=seq(0,15,0.1)
-  sapply(arrive.times, function(tt){get_frac_caught(tSinceExposed = tt, ff, gg, R0, meanToAdmit, dscreen, ascreen,incubation.d)}) %>% t() %>% as.data.frame() %>% mutate(
+  sapply(arrive.times, function(tt){get_frac_caught(tSinceExposed = tt, ff, gg, R0, meanToAdmit, dscreen, ascreen,incubation.d, frac_evaded)}) %>% t() %>% as.data.frame() %>% mutate(
     days.since.exposed = arrive.times)
 }
 # Test
-# get_frac_caught_over_time(ff = .7, gg = .2, R0 = 2, meanToAdmit = 5.5, ascreen = TRUE, dscreen = FALSE, incubation.d)
+# get_frac_caught_over_time(ff = .7, gg = .2, R0 = 2, meanToAdmit = 5.5, ascreen = TRUE, dscreen = FALSE, incubation.d, frac_evaded = .1)
 # -------------------------------
 
 # -------------------------------
@@ -444,7 +398,7 @@ make_plots = function(meanIncubate, meanToAdmit, R0, ff, gg, flight.hrs, screenT
   # -------------------------------
   # Ribbon Plot
   # -------------------------------
-  get_frac_caught_over_time(ff, gg, R0, meanToAdmit, arrival_screen, departure_screen, incubation.d = incubation.cdf) %>%
+  get_frac_caught_over_time(ff, gg, R0, meanToAdmit, arrival_screen, departure_screen, incubation.d = incubation.cdf, frac_evaded = .1) %>%
     ## Specify minim and maximum y values in each band
     mutate(dFeverMin = 0, dFeverMax = dFeverMin + caught.dpt.fever,
            dRiskMin = dFeverMax, dRiskMax = dRiskMin + caught.dpt.risk,
@@ -458,7 +412,7 @@ make_plots = function(meanIncubate, meanToAdmit, R0, ff, gg, flight.hrs, screenT
            ndeMin = ndMax, ndeMax = ndeMin+evaded.screening) %>%
     select(days.since.exposed, contains('Min'), contains('Max')) %>%
     ## Pivot to long data frame
-    pivot_longer(cols = dFeverMin:ndMax, names_to = c('outcome', 'minOrMax'), names_pattern = '(\\w+)(M\\w\\w)', values_to = 'yy') -> temp
+    pivot_longer(cols = dFeverMin:ndeMax, names_to = c('outcome', 'minOrMax'), names_pattern = '(\\w+)(M\\w\\w)', values_to = 'yy') -> temp
   ## Use full join to create columns for time, ymin, ymax, and band type
   full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by = c('days.since.exposed', 'outcome'), suffix = c('min', 'max'))%>%
     select(-starts_with('min')) %>% 
@@ -520,13 +474,13 @@ make_plots = function(meanIncubate, meanToAdmit, R0, ff, gg, flight.hrs, screenT
     riskMedians = sapply(bootList[3,], function(yy){yy}) %>% rowMeans
   ) %>%
     mutate(strategy = c('both', 'fever', 'risk')) -> meanOutcomes
-  names(meanOutcomes) = c('d.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nd', 'strategy')
+  names(meanOutcomes) = c('d.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nyd', 'nd', 'nde', 'strategy')
   
   meanOutcomes %>%
-    pivot_longer(cols = 1:8) %>%
-    mutate(outcome = factor(name, levels = (c('d.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nd')),
-                            labels =(c('stopped: departure fever screen', "stopped: departure risk screen", "stoppd: arrival fever screen",
-                                       "stopped: arrival risk screen", 'cleared: missed both', 'cleared: missed fever', 'cleared: missed risk', 'cleared: not detectable')))) %>%
+    pivot_longer(cols = 1:10) %>%
+    mutate(outcome = factor(name, levels =c('d.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nyd', 'nd', 'nde'), 
+                            labels =(c('stopped: departure fever screen', "stopped: departure risk screen", "stopped: arrival fever screen",
+                                       "stopped: arrival risk screen", 'cleared: missed both', 'cleared: missed fever', 'cleared: missed risk', 'undetectable: not yet febrile, unaware of exposure', 'undetectable: mild case, unaware of exposure', 'undetectable: evaded screening')))) %>%
     ggplot()+
     geom_bar(aes(x = strategy, y = value, fill = outcome), stat = 'identity')+
     scale_fill_manual(values = cols) +

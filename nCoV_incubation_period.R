@@ -28,7 +28,7 @@ incubationPeriods[sample(incubationPeriods$id, size = nBoot, replace = TRUE),] %
                       }else{ ## If date of exposure is uncertain, sample from all known possible dates
                         date_arrive_Wuhan + sample(0:as.numeric(date_depart_Wuhan-date_arrive_Wuhan), size = 1)
                       },
-                      boot_incubation = (date_onset_symptoms-date_exposed) %>% as.numeric()) -> iBoot
+                      boot_incubation = max(((date_onset_symptoms-date_exposed) %>% as.numeric()), .5)) -> iBoot
 
 
 incubationPeriods %>%
@@ -111,7 +111,8 @@ bootMLEs = data.frame(type = names(boot_fits_raw),
                             par2 = sapply(boot_fits_raw, function(xx) xx$par[2]),
                             nll = sapply(boot_fits_raw, function(xx) xx$value)) %>%
   mutate(AIC = 2*2+2*nll) %>%
-  arrange(AIC)
+  arrange(AIC) %>%
+  mutate(delAIC = AIC - min(AIC))
 bootMLEs
 ## Predictions for plotting
 bootFits = data.frame(xx = seq(0, 20, by = .01)) %>%
@@ -139,7 +140,8 @@ incubationPeriods %>%
   ylab('density')
 
 
-iBoot %>% ungroup() %>%
+iBoot %>% rowwise() %>%
+  mutate(boot_incubation = ifelse(boot_incubation == .5, 0, boot_incubation)) %>%ungroup() %>%
   group_by(boot_incubation) %>%
   summarise(n = n(),
             freq = n()/nBoot) %>% 
@@ -150,8 +152,7 @@ iBoot %>% ungroup() %>%
   geom_line(data = incubationFits, aes(x = xx, y = yy, color = fit)) +
   ggtitle('Bootstrapped incubation period') +
   ylab('density')
-  
-ggsave('incubation_period.pdf', width = 5, height = 5, units = 'in')
+ggsave('2020_nCov/incubation_pd_bootstrap.png', width = 5, height = 5, units = 'in', dpi = 320)
 
 
 sprintf('The mean incubation period is %2.1f days, with sd %2.2f. The upper bound is %2.1f days and the lower bound is %2.1f days',
