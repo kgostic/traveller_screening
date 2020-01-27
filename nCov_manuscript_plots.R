@@ -633,7 +633,7 @@ as.data.frame(gammaFits) %>%
 
 
 ## Simulate
-reset = FALSE
+reset = TRUE
 ## Get outcomes for both arrival and departure
 if(!file.exists('bootList_ad.RData')|reset){
   bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE)}
@@ -741,9 +741,15 @@ meanOutcomes %>%
   pivot_longer(cols = 3:10) %>%
   mutate(outcome = factor(name, levels =rev(c('d.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nd')), 
                           labels =rev(cat.labels)),
-         strategy = factor(strategy, levels = c('departure', 'arrival', 'both'), labels = c('departure', 'arrival', 'both'))) %>%
-  ggplot()+
+         strategy = factor(strategy, levels = c('departure', 'arrival', 'both'), labels = c('departure', 'arrival', 'both'))) -> stackedB
+
+dashedLine = group_by(stackedB, strategy, scenario) %>%
+  filter(name %in% c('d.fever', 'd.risk', 'a.fever', 'a.risk')) %>%
+  summarise(yy = sum(value))
+
+  ggplot(stackedB)+
   geom_bar(aes(x = strategy, y = value, fill = outcome), stat = 'identity')+
+  geom_segment(data = dashedLine, aes(x = as.numeric(strategy)-.5, xend = as.numeric(strategy)+.5, y = yy, yend = yy), linetype = 2)+
   scale_fill_manual(values = rev(cols)) +
   xlab('Screening type')+
   ylab('Fraction') +

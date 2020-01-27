@@ -1,9 +1,9 @@
 ## Estimate the incubation period distribution
-source('nCoV_Parmaeters.R')
+#source('nCoV_Parmaeters.R')
 
 ## \\\\\\\\\\\\ INCUBATION PERIOD //////////////
 outsideWuhan = read.csv('2020_nCov/outside_wuhan.csv', stringsAsFactors = FALSE) 
-
+## Get data and reformat.
 outsideWuhan %>% 
   select(age, sex, date_onset_symptoms, date_admission_hospital, date_arrive_Wuhan, date_depart_Wuhan, city, province, Home, source) %>%
   filter(date_arrive_Wuhan != "" & date_depart_Wuhan != "") %>%
@@ -20,31 +20,6 @@ incubationPeriods %>% ungroup() %>%
          id = 1:nrow(.)) -> incubationPeriods
 write.csv(x = incubationPeriods, file = '2020_nCov/known_exposures.csv', row.names = FALSE)
 
-
-
-
-## Bootstrap to represent possible times of incubation
-nBoot = 100
-set.seed(12)
-incubationPeriods[sample(incubationPeriods$id, size = nBoot, replace = TRUE),] %>%  ## Sample individual rows. Times of onset should be known.
-                    rowwise() %>%
-                    mutate(date_exposed = if(exact == TRUE){
-                      date_depart_Wuhan
-                      }else{ ## If date of exposure is uncertain, sample from all known possible dates
-                        date_arrive_Wuhan + sample(0:as.numeric(date_depart_Wuhan-date_arrive_Wuhan), size = 1)
-                      },
-                      boot_incubation = max(((date_onset_symptoms-date_exposed) %>% as.numeric()), .5)) -> iBoot
-
-
-incubationPeriods %>%
-  pivot_longer(cols = c('max_incubation', 'min_incubation', 'mid_incubation'), values_to = 'period', names_to = 'minOrMax') %>%
-  select(exact, minOrMax, period) %>%
-  ggplot()+
-  geom_density(aes(x = period, color = minOrMax, fill = minOrMax), alpha = .5, breaks = seq(-.5, 25.5, by = 1))
-
-incubationPeriods %>%
-  ggplot()+
-  geom_histogram(aes(x = mid_incubation), alpha = .5, breaks = seq(-.5, 15.5, by = 1))
 
 
 ## Fit incubation period to distribution
@@ -80,142 +55,106 @@ nll_lognormal = function(pars, dd){
 }
 
 
-## Fit to midpoints of raw data
-incubation_fits_raw = list(
-  gamma = optim(par = c(shp = 1, scl = 2), fn = nll_gamma, dd = incubationPeriods$mid_incubation),
-  weibull = optim(par = c(shp = 1, scl = 2), fn = nll_weibull, dd = incubationPeriods$mid_incubation),
-  lognormal = optim(par = c(mu = 1, sd = 2), fn = nll_lognormal, dd = incubationPeriods$mid_incubation)
-)
+## Bootstrap to represent possible times of incubation
+nBoot = 1000  ## Repeat 1000 times
+nPerBoot = nrow(incubationPeriods)
+set.seed(12)
 
-incubationMLEs = data.frame(type = names(incubation_fits_raw),
-                            par1 = sapply(incubation_fits_raw, function(xx) xx$par[1]),
-                            par2 = sapply(incubation_fits_raw, function(xx) xx$par[2]),
-                            nll = sapply(incubation_fits_raw, function(xx) xx$value)) %>%
-  mutate(AIC = 2*2+2*nll) %>%
-  arrange(AIC)
-incubationMLEs
-## Predictions for plotting
-incubationFits = data.frame(xx = seq(0, 20, by = .01)) %>%
-  mutate(gamma = dgamma(xx, shape = incubationMLEs %>% filter(type == 'gamma') %>% pull(par1), 
-                        scale = incubationMLEs %>% filter(type == 'gamma') %>% pull(par2)),
-         weibull = dweibull(xx, shape = incubationMLEs %>% filter(type == 'weibull') %>% pull(par1),
-                            scale = incubationMLEs %>% filter(type == 'weibull') %>% pull(par2)),
-         lognormal = dlnorm(xx, meanlog = log(incubationMLEs %>% filter(type == 'lognormal') %>% pull(par1)),
-                            sdlog = log(incubationMLEs %>% filter(type == 'lognormal') %>%  pull(par2)))) %>%
-  pivot_longer(gamma:lognormal, values_to = 'yy', names_to = 'fit')
-
-## Fit to bootstrapped data
-boot_fits_raw = list(
-  gamma = optim(par = c(shp = 1, scl = 2), fn = nll_gamma, dd = iBoot$boot_incubation),
-  weibull = optim(par = c(shp = 1, scl = 2), fn = nll_weibull, dd = iBoot$boot_incubation),
-  lognormal = optim(par = c(mu = 1, sd = 2), fn = nll_lognormal, dd = iBoot$boot_incubation)
-)
+## One_boot does the following:
+##     1. Bootstrap individuals from the above line list
+##     2. For each individual, randomly sample an exposure date from the range of dates spent in Wuhan or some other source city
+##     3. Calculate individual incubation period as date of exposure (imputed) - date of onset (known)
+##     4. Output MLE gamma and other parameters from steps 1-3
+## Below, use function one_boot to repeat steps 1-4 1000 times. 
+one_boot = function(){
+incubationPeriods[sample(incubationPeriods$id, size = nPerBoot, replace = TRUE),] %>%  ## Sample individual rows. Times of onset should be known.
+                    rowwise() %>%
+                    mutate(date_exposed = if(exact == TRUE){
+                      date_depart_Wuhan
+                      }else{ ## If date of exposure is uncertain, sample from all known possible dates
+                        date_arrive_Wuhan + sample(0:as.numeric(date_depart_Wuhan-date_arrive_Wuhan), size = 1)
+                      },
+                      boot_incubation = max(((date_onset_symptoms-date_exposed) %>% as.numeric()), .5)) -> iBoot
+  boot_fits_raw = list(
+    gamma = optim(par = c(shp = 1, scl = 2), fn = nll_gamma, dd = iBoot$boot_incubation),
+    weibull = optim(par = c(shp = 1, scl = 2), fn = nll_weibull, dd = iBoot$boot_incubation),
+    lognormal = optim(par = c(mu = 1, sd = 2), fn = nll_lognormal, dd = iBoot$boot_incubation)
+  )
 
 bootMLEs = data.frame(type = names(boot_fits_raw),
-                            par1 = sapply(boot_fits_raw, function(xx) xx$par[1]),
-                            par2 = sapply(boot_fits_raw, function(xx) xx$par[2]),
-                            nll = sapply(boot_fits_raw, function(xx) xx$value)) %>%
+                      par1 = sapply(boot_fits_raw, function(xx) xx$par[1]),
+                      par2 = sapply(boot_fits_raw, function(xx) xx$par[2]),
+                      nll = sapply(boot_fits_raw, function(xx) xx$value)) %>%
   mutate(AIC = 2*2+2*nll) %>%
   arrange(AIC) %>%
   mutate(delAIC = AIC - min(AIC))
 bootMLEs
-## Predictions for plotting
-bootFits = data.frame(xx = seq(0, 20, by = .01)) %>%
-  mutate(gamma = dgamma(xx, shape = bootMLEs %>% filter(type == 'gamma') %>% pull(par1), 
-                        scale = bootMLEs %>% filter(type == 'gamma') %>% pull(par2)),
-         weibull = dweibull(xx, shape = bootMLEs %>% filter(type == 'weibull') %>% pull(par1),
-                            scale = bootMLEs %>% filter(type == 'weibull') %>% pull(par2)),
-         lognormal = dlnorm(xx, meanlog = log(bootMLEs %>% filter(type == 'lognormal') %>% pull(par1)),
-                            sdlog = log(bootMLEs %>% filter(type == 'lognormal') %>%  pull(par2)))) %>%
-  pivot_longer(gamma:lognormal, values_to = 'yy', names_to = 'fit')
-
-
-## Get gamma profiles
-shape.vals = seq(bootMLEs[1,2]+-.5, bootMLEs[1,2]+2, by = .01)
-scale.vals = seq(bootMLEs[1,3]-.5, bootMLEs[1,3]+2, by = .01)
-scale.prof = scale.vals*0
-shape.prof = shape.vals*0
-for(ii in 1:length(shape.vals)){
-  shape.prof[ii] = optim(par = c(scl = 2.8), fn = nll_gamma, dd = iBoot$boot_incubation, prof.val = shape.vals[ii], prof.par = 'shp')$value
 }
-for(ii in 1:length(scale.vals)){
-  scale.prof[ii] = optim(par = c(shp = 2.8), fn = nll_gamma, dd = iBoot$boot_incubation, prof.val = scale.vals[ii], prof.par = 'scl')$value
-}
-par(mfrow = c(2,1))
-plot(shape.vals, shape.prof, type = 'l')
-abline(h = bootMLEs[1,4])
-abline(v = bootMLEs[1,2])
-plot(scale.vals, scale.prof, type = 'l')
-abline(h = bootMLEs[1,4])
-abline(v = bootMLEs[1,3])
-shape.vals[shape.prof<(bootMLEs[1,4]+2)]
-scale.vals[scale.prof<(bootMLEs[1,4]+2)]
+
+## Repeat resampling procedure 1000 times
+lapply(X = 1:nBoot, FUN = function(xx){one_boot()}) -> bootResults
+
+## Extract gamma results
+gamma_results = sapply(bootResults, function(ll) ll %>% as.data.frame() %>% filter(type == 'gamma'))
+## Summarise gamma results to get the mean, and central 95% of shape and scale estimates
+grs = data.frame(par1 = gamma_results['par1',] %>% unlist(), par2 = gamma_results['par2',] %>% unlist()) %>%
+  mutate(mean = par1*par2) %>%
+  summarise(shape.med = median(par1),
+            shape.low = quantile(par1, .025),
+            shape.high = quantile(par1, .975),
+            scale.med = median(par2),
+            scale.low = quantile(par2, .025),
+            scale.high = quantile(par2, .975),
+            meanInc.med = median(mean),
+            meanInc.low = quantile(mean, .025),
+            meanInc.high = quantile(mean, .975))
+grs
+sprintf('Gamma: The mean incubation period is %1.2f (%1.2f-%1.2f). MLE shape is %1.2f (%1.2f, %1.2f). MLE scale is %1.2f (%1.f, %1.2f)',
+        grs[7], grs[8], grs[9], grs[1], grs[2], grs[3], grs[4], grs[5], grs[6])
+
+
+## Extract lognormal results
+lognormal_results = sapply(bootResults, function(ll) ll %>% as.data.frame() %>% filter(type == 'lognormal'))
+## Summarise lognormal results to get the mean, and central 95% of shape and scale estimates
+rs = data.frame(par1 = lognormal_results['par1',] %>% unlist(), par2 = lognormal_results['par2',] %>% unlist()) %>%
+  mutate(mean = par1*par2) %>%
+  summarise(mean.med = median(par1),
+            mean.low = quantile(par1, .025),
+            mean.high = quantile(par1, .975),
+            sd.med = median(par2),
+            sd.low = quantile(par2, .025),
+            sd.high = quantile(par2, .975))
+rs
+sprintf('lognormal: The mean incubation period is %1.2f (%1.2f-%1.2f). Standard dev. is %1.2f (%1.2f, %1.2f).',
+        rs[1], rs[2], rs[3], rs[4], rs[5], rs[6])
+
+
+## Extract weibull results
+weibull_results = sapply(bootResults, function(ll) ll %>% as.data.frame() %>% filter(type == 'weibull'))
+## Summarise weibull results to get the mean, and central 95% of shape and scale estimates
+rs = data.frame(par1 = weibull_results['par1',] %>% unlist(), par2 = weibull_results['par2',] %>% unlist()) %>%
+  summarise(shape.med = median(par1),
+            shape.low = quantile(par1, .025),
+            shape.high = quantile(par1, .975),
+            scale.med = median(par2),
+            scale.low = quantile(par2, .025),
+            scale.high = quantile(par2, .975))
+rs
+sprintf('weibull: MLE shape is %1.2f (%1.2f, %1.2f). MLE scale is %1.2f (%1.f, %1.2f)',
+        rs[1], rs[2], rs[3], rs[4], rs[5], rs[6])
 
 
 
-## Get weibull profiles
-shape.vals = seq(bootMLEs[1,2]+-.5, bootMLEs[1,2]+2, by = .01)
-scale.vals = seq(bootMLEs[1,3]-.5, bootMLEs[1,3]+2, by = .01)
-scale.prof = scale.vals*0
-shape.prof = shape.vals*0
-for(ii in 1:length(shape.vals)){
-  shape.prof[ii] = optim(par = c(scl = 2.8), fn = nll_gamma, dd = iBoot$boot_incubation, prof.val = shape.vals[ii], prof.par = 'shp')$value
-}
-for(ii in 1:length(scale.vals)){
-  scale.prof[ii] = optim(par = c(shp = 2.8), fn = nll_gamma, dd = iBoot$boot_incubation, prof.val = scale.vals[ii], prof.par = 'scl')$value
-}
-par(mfrow = c(2,1))
-plot(shape.vals, shape.prof, type = 'l')
-abline(h = bootMLEs[1,4])
-abline(v = bootMLEs[1,2])
-plot(scale.vals, scale.prof, type = 'l')
-abline(h = bootMLEs[1,4])
-abline(v = bootMLEs[1,3])
+## Compare mean AIC across models
+lapply(bootResults, function(ll) ll[, c('type', 'delAIC', 'AIC')]) %>% bind_rows() %>%
+  group_by(type) %>%
+  summarize(nbest = sum(delAIC == 0),
+            fracBest = nbest/n(),
+            meanDelAIC = median(delAIC)) %>%
+  arrange(meanDelAIC)
+sprintf('All models perform well, with median delta AIC < 2, although gamma and Weibull slightly outperform lognormal.')
+sprintf('We proceed using a gamma distribution for computational convenience (its parameters can easily be related to the mean).')
 
 
 
 
-incubationPeriods %>%
-  pivot_longer(cols = c(max_incubation, min_incubation, mid_incubation), names_to = 'kind', values_to = 'period') %>%
-  group_by(kind, period) %>%
-  summarise(n = n()) %>%
-  ungroup() %>% group_by(kind) %>%
-  mutate(freq = n/n()) %>%
-  filter(kind == 'mid_incubation') %>%
-  ggplot() +
-  geom_bar(aes(x = period, y = freq), stat = "identity", fill = 'purple3', color = 'purple3')+
-  theme_bw()+
-  geom_line(data = incubationFits, aes(x = xx, y = yy, color = fit)) +
-  ggtitle('Incubation period') +
-  ylab('density')
-
-
-iBoot %>% rowwise() %>%
-  mutate(boot_incubation = ifelse(boot_incubation == .5, 0, boot_incubation)) %>%ungroup() %>%
-  group_by(boot_incubation) %>%
-  summarise(n = n(),
-            freq = n()/nBoot) %>% 
-  ungroup() %>%
-  ggplot()+
-  geom_bar(aes(x=boot_incubation, y = freq), stat = "identity", fill = 'purple3', color = 'purple3')+
-  theme_bw()+
-  geom_line(data = incubationFits, aes(x = xx, y = yy, color = fit)) +
-  ggtitle('Bootstrapped incubation period') +
-  xlab('incubation period')+
-  ylab('density') -> fittedIncPeriod
-fittedIncPeriod
-ggsave('2020_nCov/incubation_pd_bootstrap.png', width = 5, height = 4, units = 'in', dpi = 320)
-
-
-sprintf('The mean incubation period is %2.1f days, with sd %2.2f. The upper bound is %2.1f days and the lower bound is %2.1f days',
-        incubationPeriods %>% pull(mid_incubation) %>% mean(),
-        incubationPeriods %>% pull(mid_incubation) %>% sd(),
-        incubationPeriods %>% pull(max_incubation) %>% max(),
-        incubationPeriods %>% pull(min_incubation) %>% min())
-
-
-sprintf('The bootstrapped incubation period is %2.1f days, with sd %2.2f. The upper bound is %2.1f days and the lower bound is %2.1f days',
-        iBoot %>% pull(boot_incubation) %>% mean(),
-        iBoot %>% pull(boot_incubation) %>% sd(),
-        iBoot %>% pull(boot_incubation) %>% max(),
-        iBoot %>% pull(boot_incubation) %>% min())
