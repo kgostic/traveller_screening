@@ -475,7 +475,7 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0('P(symptomatic) ', unique(fever))),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = unique(fever), labels = paste0((1-unique(fever))*100,"% symptomatic")),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr', 'nd')), 
                           labels =(rev(cat.labels)))) -> rib
@@ -524,7 +524,7 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0('P(symptomatic)', unique(fever))),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = unique(fever), labels = paste0((1-unique(fever))*100,"% symptomatic")),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr','nd')), 
                           labels =(rev(cat.labels)))) %>%
@@ -535,7 +535,9 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   facet_grid(fever~meanIncubate) +
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
-  ylab('Prob. exposed individual is detained or cleared')+
+  ylab('Percentage of exposed individuals detained or cleared')+
+  scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2S1_grid_of_ribbon_plots_departure_only.png', width = 8, height = 4.5, units = 'in')
 
@@ -571,7 +573,7 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0('P(symptomatic)', unique(fever))),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = unique(fever), labels = paste0((1-unique(fever))*100,"% symptomatic")),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr','nd')), 
                           labels =(rev(cat.labels)))) %>%
@@ -582,7 +584,8 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   facet_grid(fever~meanIncubate) +
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
-  ylab('Prob. exposed individual is detained or cleared')+
+  ylab('Percentage of exposed individuals detained or cleared')+
+  scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2S2_grid_of_ribbon_plots_arrival_only.png', width = 8, height = 4.5, units = 'in')
 
@@ -629,7 +632,7 @@ as.data.frame(gammaFits) %>%
 
 
 ## Simulate
-reset = TRUE
+reset = FALSE
 ## Get outcomes for both arrival and departure
 if(!file.exists('bootList_ad.RData')|reset){
 bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE)}
@@ -691,10 +694,12 @@ data.frame(departure.only = sapply(bootList_d[2,], function(yy){yy}),
   ungroup() %>%
   mutate(screen_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
                               labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = c(.5, .75, .95), labels = c('P(symptomatic)=0.5', 'P(symptomatic)=0.75', 'P(symptomatic)=.95'))) %>%
-    ggplot()+
-    geom_point(aes(x = screen_type, y = med, color = screen_type), size = 3)+
-    geom_segment(aes(x = screen_type, xend = screen_type, y = lower, yend = upper, color = screen_type))+
+         scenario = factor(ff, levels = c(.5, .75, .95), labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> frac
+    
+    
+  ggplot(frac)+
+    geom_point(aes(x = screen_type, y = med), size = 3)+
+    geom_segment(aes(x = screen_type, xend = screen_type, y = lower, yend = upper))+
     theme_bw()+
   facet_grid(.~scenario)+
     ylim(c(0,1))+
@@ -713,7 +718,7 @@ data.frame(departure.only = sapply(bootList_d[2,], function(yy){yy}),
     arrivalMeans = (sapply(bootList_a[1,], function(yy){yy}) %>% t() %>% as.data.frame()),
     bothMeans = (sapply(bootList_ad[1,], function(yy){yy}) %>% t() %>% as.data.frame()) 
   ) %>%
-    mutate(scenario = rep(c('P(symptomatic)=0.5', 'P(symptomatic)=0.75', 'P(symptomatic)=.95'), each = nboot) %>% rep(times = 3)) %>%
+    mutate(scenario = rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nboot) %>% rep(times = 3)) %>%
     mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nboot*3)) %>%
     group_by(scenario, strategy) %>%
     summarise_all(mean) %>% ungroup() -> meanOutcomes
