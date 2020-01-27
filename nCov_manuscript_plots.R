@@ -458,15 +458,15 @@ apply(X = input_grid, MARGIN = 1, FUN = function(ii){gridWrapper(ii[1], ii[2])})
 ## Reformat for plotting
 cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'brown4', 'salmon2', 'firebrick1')
 gridOutputs %>%
-mutate(dFeverMin = 0, dFeverMax = dFeverMin + caught.dpt.fever,
-       dRiskMin = dFeverMax, dRiskMax = dRiskMin + caught.dpt.risk,
-       aFeverMin = dRiskMax, aFeverMax = aFeverMin + caught.arv.fever,
-       aRiskMin = aFeverMax, aRiskMax = aRiskMin +caught.arv.risk,
-       mbMin = aRiskMax, mbMax = mbMin+missed.both,
-       mfMin = mbMax, mfMax = mfMin+missed.fever.only,
-       mrMin = mfMax, mrMax = mrMin+missed.risk.only,
-       ndMin = mrMax, ndMax = ndMin+not.detectable,
-       ndeMin = ndMax, ndeMax = ndeMin+evaded.screening) %>%
+  mutate(dFeverMin = 0, dFeverMax = dFeverMin + caught.dpt.fever,
+         dRiskMin = dFeverMax, dRiskMax = dRiskMin + caught.dpt.risk,
+         aFeverMin = dRiskMax, aFeverMax = aFeverMin + caught.arv.fever,
+         aRiskMin = aFeverMax, aRiskMax = aRiskMin +caught.arv.risk,
+         mbMin = aRiskMax, mbMax = mbMin+missed.both,
+         mfMin = mbMax, mfMax = mfMin+missed.fever.only,
+         mrMin = mfMax, mrMax = mrMin+missed.risk.only,
+         ndMin = mrMax, ndMax = ndMin+not.detectable,
+         ndeMin = ndMax, ndeMax = ndeMin+evaded.screening) %>%
   select(days.since.exposed, fever, meanIncubate, contains('Min'), contains('Max')) %>%
   ## Pivot to long data frame
   pivot_longer(cols = dFeverMin:ndeMax, names_to = c('outcome', 'minOrMax'), names_pattern = '(\\w+)(M\\w\\w)', values_to = 'yy') -> temp
@@ -475,18 +475,21 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0('P(symptomatic) ', unique(fever))),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = unique(fever), labels = paste0((1-unique(fever))*100,"% symptomatic")),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr', 'nd')), 
-                          labels =(rev(cat.labels)))) %>%
-  ## Plot
-  ## Plot
-  ggplot()+
+                          labels =(rev(cat.labels)))) -> rib
+## Plot
+## Plot
+blackline <- filter(rib,outcome=="detected: arrival risk screen")
+ggplot(rib)+
   geom_ribbon(aes(x = days.since.exposed, ymin = yymin, ymax = yymax, fill = outcome))+
   facet_grid(fever~meanIncubate) +
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
-  ylab('Prob. exposed individual is detained or cleared')+
+  geom_line(data=blackline,aes(x=days.since.exposed,y=yymax),lty=2)+
+  ylab('Percentage of exposed individuals detained or cleared')+
+  scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2_grid_of_ribbon_plots.png', width = 8, height = 4.5, units = 'in')
 
@@ -521,7 +524,7 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0('P(symptomatic)', unique(fever))),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = unique(fever), labels = paste0((1-unique(fever))*100,"% symptomatic")),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr','nd')), 
                           labels =(rev(cat.labels)))) %>%
@@ -532,7 +535,9 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   facet_grid(fever~meanIncubate) +
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
-  ylab('Prob. exposed individual is detained or cleared')+
+  ylab('Percentage of exposed individuals detained or cleared')+
+  scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
+  
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2S1_grid_of_ribbon_plots_departure_only.png', width = 8, height = 4.5, units = 'in')
 
@@ -568,7 +573,7 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0('P(symptomatic)', unique(fever))),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = unique(fever), labels = paste0((1-unique(fever))*100,"% symptomatic")),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr','nd')), 
                           labels =(rev(cat.labels)))) %>%
@@ -579,7 +584,8 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   facet_grid(fever~meanIncubate) +
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
-  ylab('Prob. exposed individual is detained or cleared')+
+  ylab('Percentage of exposed individuals detained or cleared')+
+  scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2S2_grid_of_ribbon_plots_arrival_only.png', width = 8, height = 4.5, units = 'in')
 
@@ -620,16 +626,16 @@ as.data.frame(gammaFits) %>%
   ylab('density')+
   scale_color_discrete(name='mean days \nincubation')+
   theme_classic() -> incPeriods
-  
+
 
 
 
 
 ## Simulate
-reset = TRUE
+reset = FALSE
 ## Get outcomes for both arrival and departure
 if(!file.exists('bootList_ad.RData')|reset){
-bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
@@ -638,7 +644,7 @@ bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = 
          g.sens = parsets$g.sens,
          mInc = parsets$mInc,
          r0 = parsets$R0) -> bootList_ad
-save(bootList_ad, file = 'bootList_ad.RData')
+  save(bootList_ad, file = 'bootList_ad.RData')
 }else{
   load('bootList_ad.RData')
 }
@@ -680,67 +686,77 @@ data.frame(departure.only = sapply(bootList_d[2,], function(yy){yy}),
            arrival.only = sapply(bootList_a[2,], function(yy){yy}),
            both = sapply(bootList_ad[2,], function(yy){yy})) %>%
   mutate(ff = parsets$ff) %>%
-    pivot_longer(1:3, names_to = c('screen_type'), values_to = 'frac.missed') %>%
-    group_by(screen_type, ff) %>%
-    summarise(med = median(1-frac.missed),
-              lower = quantile(1-frac.missed, probs = .025),
-              upper = quantile(1-frac.missed, probs = .975)) %>%
+  pivot_longer(1:3, names_to = c('screen_type'), values_to = 'frac.missed') %>%
+  group_by(screen_type, ff)  %>% 
+  mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
+                          labels = c('departure', 'arrival', 'both')),
+         scenario = factor(ff, levels = c(.5, .75, .95), 
+                           labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> temp
+
+temp %>% summarise(med = median(1-frac.missed),
+                   lower = quantile(1-frac.missed, probs = .025),
+                   upper = quantile(1-frac.missed, probs = .975)) %>%
   ungroup() %>%
-  mutate(screen_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
-                              labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = c(.5, .75, .95), labels = c('P(symptomatic)=0.5', 'P(symptomatic)=0.75', 'P(symptomatic)=.95'))) %>%
-    ggplot()+
-    geom_point(aes(x = screen_type, y = med, color = screen_type), size = 3)+
-    geom_segment(aes(x = screen_type, xend = screen_type, y = lower, yend = upper, color = screen_type))+
-    theme_bw()+
+  mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
+                          labels = c('departure', 'arrival', 'both')),
+         scenario = factor(ff, levels = c(.5, .75, .95), 
+                           labels = c('50% subclinical', '25% subclinical',
+                                      '5% subclinical'))) -> frac  
+
+
+ggplot(temp)+
+  geom_violin(aes(x=sc_type,y=1-frac.missed))+
+  geom_point(data=frac,aes(x = sc_type, y = med), size = 3)+
+  geom_segment(data=frac,aes(x = sc_type, xend = sc_type, y = lower, yend = upper))+
+  theme_bw()+
+  xlab('Screening type')+
+  ylab('Fraction caught')+
+  ylim(c(0,1))+
+  #geom_dotplot(binaxis='y', binwidth = .005,stackdir='center',aes(x=sc_type,y=1-frac.missed),dotsize=.5,alpha=.5)+
+  facet_wrap(~scenario)   -> fracCaught
+fracCaught
+
+#ggsave('2020_nCov/Shiny_fraction_missed.pdf', width = 4, height = 4, units = 'in')  
+
+# -------------------------------
+## Stacked barplot
+# -------------------------------
+cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'brown4', 'salmon2', 'firebrick1')
+bind_rows(
+  departureMeans = (sapply(bootList_d[1,], function(yy){yy}) %>% t() %>% as.data.frame()),
+  arrivalMeans = (sapply(bootList_a[1,], function(yy){yy}) %>% t() %>% as.data.frame()),
+  bothMeans = (sapply(bootList_ad[1,], function(yy){yy}) %>% t() %>% as.data.frame()) 
+) %>%
+  mutate(scenario = rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nboot) %>% rep(times = 3)) %>%
+  mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nboot*3)) %>%
+  group_by(scenario, strategy) %>%
+  summarise_all(mean) %>% ungroup() -> meanOutcomes
+names(meanOutcomes) = c('scenario', 'strategy', 'd.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nd', 'nde')
+
+meanOutcomes %>%
+  select(-nde) %>%
+  pivot_longer(cols = 3:10) %>%
+  mutate(outcome = factor(name, levels =rev(c('d.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nd')), 
+                          labels =rev(cat.labels)),
+         strategy = factor(strategy, levels = c('departure', 'arrival', 'both'), labels = c('departure', 'arrival', 'both'))) %>%
+  ggplot()+
+  geom_bar(aes(x = strategy, y = value, fill = outcome), stat = 'identity')+
+  scale_fill_manual(values = rev(cols)) +
+  xlab('Screening type')+
+  ylab('Fraction') +
   facet_grid(.~scenario)+
-    ylim(c(0,1))+
-    xlab('Screening type')+
-    ylab('Fraction caught')+
-    theme(legend.position = "none") -> fracCaught
-  fracCaught
-  #ggsave('2020_nCov/Shiny_fraction_missed.pdf', width = 4, height = 4, units = 'in')  
-  
-  # -------------------------------
-  ## Stacked barplot
-  # -------------------------------
-  cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'brown4', 'salmon2', 'firebrick1')
-  bind_rows(
-    departureMeans = (sapply(bootList_d[1,], function(yy){yy}) %>% t() %>% as.data.frame()),
-    arrivalMeans = (sapply(bootList_a[1,], function(yy){yy}) %>% t() %>% as.data.frame()),
-    bothMeans = (sapply(bootList_ad[1,], function(yy){yy}) %>% t() %>% as.data.frame()) 
-  ) %>%
-    mutate(scenario = rep(c('P(symptomatic)=0.5', 'P(symptomatic)=0.75', 'P(symptomatic)=.95'), each = nboot) %>% rep(times = 3)) %>%
-    mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nboot*3)) %>%
-    group_by(scenario, strategy) %>%
-    summarise_all(mean) %>% ungroup() -> meanOutcomes
-  names(meanOutcomes) = c('scenario', 'strategy', 'd.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nd', 'nde')
-  
-  meanOutcomes %>%
-    select(-nde) %>%
-    pivot_longer(cols = 3:10) %>%
-    mutate(outcome = factor(name, levels =rev(c('d.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nd')), 
-                            labels =rev(cat.labels)),
-           strategy = factor(strategy, levels = c('departure', 'arrival', 'both'), labels = c('departure', 'arrival', 'both'))) %>%
-    ggplot()+
-    geom_bar(aes(x = strategy, y = value, fill = outcome), stat = 'identity')+
-    scale_fill_manual(values = rev(cols)) +
-    xlab('Screening type')+
-    ylab('Fraction') +
-    facet_grid(.~scenario)+
-    theme_bw() +
-    guides(fill=guide_legend(nrow = 4))+
-    theme(legend.position = 'bottom') -> stackedBars
-  
-  png(filename = '2020_nCov/Fig3S1_parRanges.png', width = 5.5, height = 7, units = 'in', res = 480)
-  grid.arrange(parRanges, incPeriods, nrow = 2, ncol = 1)
-  dev.off()
-  
-  png('2020_nCov/Fig3_populationOutcomes.png', width = 7, height = 7, units = 'in', res = 480)
-  grid.arrange(fracCaught, stackedBars, nrow = 2, heights = c(2,3))
-  dev.off()
+  theme_bw() +
+  guides(fill=guide_legend(nrow = 4))+
+  theme(legend.position = 'bottom') -> stackedBars
+
+png(filename = '2020_nCov/Fig3S1_parRanges.png', width = 5.5, height = 7, units = 'in', res = 480)
+grid.arrange(parRanges, incPeriods, nrow = 2, ncol = 1)
+dev.off()
+
+png('2020_nCov/Fig3_populationOutcomes.png', width = 7, height = 7, units = 'in', res = 480)
+grid.arrange(fracCaught, stackedBars, nrow = 2, heights = c(2,3))
+dev.off()
 
 
 #make_plots(meanIncubate = 5.5, meanToAdmit = 4.5, R0 = 2, ff = .7, gg = .2, flight.hrs = 24, screenType = 'both', nboot = 100, popn = 100)
 
-  

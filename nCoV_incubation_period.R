@@ -25,7 +25,7 @@ write.csv(x = incubationPeriods, file = '2020_nCov/known_exposures.csv', row.nam
 
 ## Bootstrap to represent possible times of incubation
 nBoot = 100
-set.seed(30)
+set.seed(12)
 incubationPeriods[sample(incubationPeriods$id, size = nBoot, replace = TRUE),] %>%  ## Sample individual rows. Times of onset should be known.
                     rowwise() %>%
                     mutate(date_exposed = if(exact == TRUE){
@@ -156,7 +156,9 @@ iBoot %>% rowwise() %>%
   theme_bw()+
   geom_line(data = incubationFits, aes(x = xx, y = yy, color = fit)) +
   ggtitle('Bootstrapped incubation period') +
-  ylab('density')
+  xlab('incubation period')+
+  ylab('density') -> fittedIncPeriod
+fittedIncPeriod
 ggsave('2020_nCov/incubation_pd_bootstrap.png', width = 5, height = 4, units = 'in', dpi = 320)
 
 
