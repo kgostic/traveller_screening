@@ -687,26 +687,35 @@ data.frame(departure.only = sapply(bootList_d[2,], function(yy){yy}),
            both = sapply(bootList_ad[2,], function(yy){yy})) %>%
   mutate(ff = parsets$ff) %>%
     pivot_longer(1:3, names_to = c('screen_type'), values_to = 'frac.missed') %>%
-    group_by(screen_type, ff) %>%
-    summarise(med = median(1-frac.missed),
-              lower = quantile(1-frac.missed, probs = .025),
-              upper = quantile(1-frac.missed, probs = .975)) %>%
-  ungroup() %>%
-  mutate(screen_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
-                              labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = c(.5, .75, .95), labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> frac
-    
-    
-  ggplot(frac)+
-    geom_point(aes(x = screen_type, y = med), size = 3)+
-    geom_segment(aes(x = screen_type, xend = screen_type, y = lower, yend = upper))+
+    group_by(screen_type, ff)  %>% 
+  mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
+         labels = c('departure', 'arrival', 'both')),
+         scenario = factor(ff, levels = c(.5, .75, .95), 
+          labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> temp
+  
+  temp %>% summarise(med = median(1-frac.missed),
+            lower = quantile(1-frac.missed, probs = .025),
+            upper = quantile(1-frac.missed, probs = .975)) %>%
+    ungroup() %>%
+    mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
+                            labels = c('departure', 'arrival', 'both')),
+           scenario = factor(ff, levels = c(.5, .75, .95), 
+                             labels = c('50% subclinical', '25% subclinical',
+                                        '5% subclinical'))) -> frac  
+  
+  
+  ggplot(temp)+
+    geom_violin(aes(x=sc_type,y=1-frac.missed))+
+    geom_point(data=frac,aes(x = sc_type, y = med), size = 3)+
+    geom_segment(data=frac,aes(x = sc_type, xend = sc_type, y = lower, yend = upper))+
     theme_bw()+
-  facet_grid(.~scenario)+
-    ylim(c(0,1))+
     xlab('Screening type')+
     ylab('Fraction caught')+
-    theme(legend.position = "none") -> fracCaught
+    ylim(c(0,1))+
+    #geom_dotplot(binaxis='y', binwidth = .005,stackdir='center',aes(x=sc_type,y=1-frac.missed),dotsize=.5,alpha=.5)+
+    facet_wrap(~scenario)   -> fracCaught
   fracCaught
+
   #ggsave('2020_nCov/Shiny_fraction_missed.pdf', width = 4, height = 4, units = 'in')  
   
   # -------------------------------
