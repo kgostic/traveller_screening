@@ -23,8 +23,8 @@ nboot = 1000        # n sim samples
 popn = 100        # population size of infected travelers
 #Growing (0) or flat (1) epidemic
 flatA=0
-scale.in = 1.8
-mToAdmit = 4.5 ## days from onset to hospitalization. (Assume people don't travel after admit)
+scale.in = 2.8
+mToAdmit = 4 ## days from onset to hospitalization. (Assume people don't travel after admit)
 
 
 cat.labels = c('detected: departure fever screen', "detected: departure risk screen", "detected: arrival fever screen",
@@ -216,12 +216,11 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
     #Without symptoms at departure
     NSd.arrive = NSd.sspass.rspass
     
-    
     ### \\\\\\\\\\\\\\\\\\\\\\\\\\\\ FLIGHT LANDS /////////////////////////////// ###
     #SYMPTOM DEVELOPMENT IN FLIGHT
     #calculate the conditional probability of developing symptoms on flight given no
     #symptoms at departure
-    p.new.symptoms = ((incubation.d(d+del.d)-incubation.d(d))/(1-incubation.d(d)))
+    p.new.symptoms = ifelse(arrival_screen, ((incubation.d(d+del.d)-incubation.d(d))/(1-incubation.d(d))), 0)
     Sa.arrive = NSd.arrive*p.new.symptoms #Sa.... denotes symptoms on arrival, but not at departure
     NS.arrive = NSd.arrive*(1-p.new.symptoms) #NS... denotes no symptoms on arrival
     #No modulation of Sd.arrive because this group was already symptomatic
@@ -615,6 +614,7 @@ data.frame(par = factor(names(low.vals)[-4], levels = names(low.vals[-4]), label
 
 ## Plot plausible incubation period distributions
 xx = seq(0, 25, by = .01)
+best = data.frame(x=xx) %>% mutate(value = dgamma(x, shape = 1.6, scale = scale.in))
 sapply(X = seq(low.vals['mInc'], high.vals['mInc'], by = .5), FUN = function(mm){dgamma(xx, shape = mm/scale.in, scale = scale.in)}) -> gammaFits
 colnames(gammaFits) = seq(low.vals['mInc'], high.vals['mInc'], by = .5)
 as.data.frame(gammaFits) %>%
@@ -622,6 +622,7 @@ as.data.frame(gammaFits) %>%
   melt(id.vars = 'x') %>%
   ggplot()+
   geom_line(aes(x = x, y = value, color = variable), size = .6, alpha = .5, show.legend = TRUE)+
+  geom_line(data = best, aes(x = x, y = value))+
   xlab('days')+
   ylab('density')+
   scale_color_discrete(name='mean days \nincubation')+
@@ -690,8 +691,8 @@ data.frame(departure.only = sapply(bootList_d[2,], function(yy){yy}),
   group_by(screen_type, ff)  %>% 
   mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
                           labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = c(.5, .75, .95), 
-                           labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> temp
+         scenario = factor(ff, levels = c(.95, .75, .5), 
+                           labels = c('5% subclinical', '25% subclinical', '50% subclinical'))) -> temp
 
 temp %>% summarise(med = median(1-frac.missed),
                    lower = quantile(1-frac.missed, probs = .025),
@@ -699,18 +700,19 @@ temp %>% summarise(med = median(1-frac.missed),
   ungroup() %>%
   mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
                           labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = c(.5, .75, .95), 
-                           labels = c('50% subclinical', '25% subclinical',
-                                      '5% subclinical'))) -> frac  
+         scenario = factor(ff, levels = c(.95, .75, .5), 
+                           labels = c('5% subclinical', '25% subclinical',
+                                      '50% subclinical'))) -> frac  
 
 
 ggplot(temp)+
   geom_violin(aes(x=sc_type,y=1-frac.missed))+
   geom_point(data=frac,aes(x = sc_type, y = med), size = 3)+
   geom_segment(data=frac,aes(x = sc_type, xend = sc_type, y = lower, yend = upper))+
+  geom_text(data = frac, aes(x = sc_type, y = upper+.2, label = sprintf('%1.2f', med))) +
   theme_bw()+
   xlab('Screening type')+
-  ylab('Fraction caught')+
+  ylab('Fraction detected')+
   ylim(c(0,1))+
   #geom_dotplot(binaxis='y', binwidth = .005,stackdir='center',aes(x=sc_type,y=1-frac.missed),dotsize=.5,alpha=.5)+
   facet_wrap(~scenario)   -> fracCaught
@@ -727,7 +729,8 @@ bind_rows(
   arrivalMeans = (sapply(bootList_a[1,], function(yy){yy}) %>% t() %>% as.data.frame()),
   bothMeans = (sapply(bootList_ad[1,], function(yy){yy}) %>% t() %>% as.data.frame()) 
 ) %>%
-  mutate(scenario = rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nboot) %>% rep(times = 3)) %>%
+  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nboot) %>% rep(times = 3), 
+                           levels = rev(c('50% subclinical', '25% subclinical', '5% subclinical')))) %>%
   mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nboot*3)) %>%
   group_by(scenario, strategy) %>%
   summarise_all(mean) %>% ungroup() -> meanOutcomes
@@ -748,6 +751,7 @@ meanOutcomes %>%
   theme_bw() +
   guides(fill=guide_legend(nrow = 4))+
   theme(legend.position = 'bottom') -> stackedBars
+stackedBars
 
 png(filename = '2020_nCov/Fig3S1_parRanges.png', width = 5.5, height = 7, units = 'in', res = 480)
 grid.arrange(parRanges, incPeriods, nrow = 2, ncol = 1)

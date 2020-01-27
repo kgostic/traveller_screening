@@ -48,13 +48,13 @@ incubationPeriods %>%
 
 
 ## Fit incubation period to distribution
-nll_gamma = function(pars, dd){
+nll_gamma = function(pars, dd, prof.par = 'none', prof.val = NULL){
   ## INPUTS - dd is the data (a vector of times elapsed),
   ##  pars is a named vector containing the shape (shp) and scale (scl) parameter of the gamma distribution
   ##  prof.val is an optional numeric input, which gives the value of the fixed parameter when profiling
   ## OUTPUTS - the negative log likelihood of the data given the parameters
-  shp = pars['shp']
-  scl = pars['scl']
+  shp = ifelse(prof.par == 'shp', prof.val, pars['shp'])
+  scl = ifelse(prof.par == 'scl', prof.val, pars['scl'])
   - (dgamma(dd, shape = shp, scale = scl, log = TRUE) %>% sum())
 }
 
@@ -128,6 +128,51 @@ bootFits = data.frame(xx = seq(0, 20, by = .01)) %>%
          lognormal = dlnorm(xx, meanlog = log(bootMLEs %>% filter(type == 'lognormal') %>% pull(par1)),
                             sdlog = log(bootMLEs %>% filter(type == 'lognormal') %>%  pull(par2)))) %>%
   pivot_longer(gamma:lognormal, values_to = 'yy', names_to = 'fit')
+
+
+## Get gamma profiles
+shape.vals = seq(bootMLEs[1,2]+-.5, bootMLEs[1,2]+2, by = .01)
+scale.vals = seq(bootMLEs[1,3]-.5, bootMLEs[1,3]+2, by = .01)
+scale.prof = scale.vals*0
+shape.prof = shape.vals*0
+for(ii in 1:length(shape.vals)){
+  shape.prof[ii] = optim(par = c(scl = 2.8), fn = nll_gamma, dd = iBoot$boot_incubation, prof.val = shape.vals[ii], prof.par = 'shp')$value
+}
+for(ii in 1:length(scale.vals)){
+  scale.prof[ii] = optim(par = c(shp = 2.8), fn = nll_gamma, dd = iBoot$boot_incubation, prof.val = scale.vals[ii], prof.par = 'scl')$value
+}
+par(mfrow = c(2,1))
+plot(shape.vals, shape.prof, type = 'l')
+abline(h = bootMLEs[1,4])
+abline(v = bootMLEs[1,2])
+plot(scale.vals, scale.prof, type = 'l')
+abline(h = bootMLEs[1,4])
+abline(v = bootMLEs[1,3])
+shape.vals[shape.prof<(bootMLEs[1,4]+2)]
+scale.vals[scale.prof<(bootMLEs[1,4]+2)]
+
+
+
+## Get weibull profiles
+shape.vals = seq(bootMLEs[1,2]+-.5, bootMLEs[1,2]+2, by = .01)
+scale.vals = seq(bootMLEs[1,3]-.5, bootMLEs[1,3]+2, by = .01)
+scale.prof = scale.vals*0
+shape.prof = shape.vals*0
+for(ii in 1:length(shape.vals)){
+  shape.prof[ii] = optim(par = c(scl = 2.8), fn = nll_gamma, dd = iBoot$boot_incubation, prof.val = shape.vals[ii], prof.par = 'shp')$value
+}
+for(ii in 1:length(scale.vals)){
+  scale.prof[ii] = optim(par = c(shp = 2.8), fn = nll_gamma, dd = iBoot$boot_incubation, prof.val = scale.vals[ii], prof.par = 'scl')$value
+}
+par(mfrow = c(2,1))
+plot(shape.vals, shape.prof, type = 'l')
+abline(h = bootMLEs[1,4])
+abline(v = bootMLEs[1,2])
+plot(scale.vals, scale.prof, type = 'l')
+abline(h = bootMLEs[1,4])
+abline(v = bootMLEs[1,3])
+
+
 
 
 incubationPeriods %>%
