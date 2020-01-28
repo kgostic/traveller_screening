@@ -1,0 +1,219 @@
+/* Style heading text */
+h1 {
+  color: #303856;
+  font-size:28px;  
+  font-family: Verdana, Geneva, sans-serif;
+  text-align: left;
+  padding: 5px 1px;
+  margin: 0px;
+  font-weight: bold;
+}
+
+h2 {
+  font-size: 18px;
+  font-family: Verdana, Geneva, sans-serif;
+  color: #2B3856;
+  text-align: left;
+  padding: 1px 1px;
+  margin: 0px;
+  font-weight: normal;
+}
+
+h2.research {
+  font-size: 22px;
+  font-family: Verdana, Geneva, sans-serif;
+  color: #2B3856;
+  text-align: center;
+  padding: 0px;
+  margin: 40px 15em;
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: bold;
+  font-family: Verdana, Geneva, sans-serif;
+  color: #2B3856;
+  text-align: left;
+  padding: 0px;
+  margin: 30px 23vw 10px 20vw;
+}
+
+p {
+  font-size: 16px;
+  font-family: Verdana, Geneva, sans-serif;
+  color: #2B3856;
+  text-align: left;
+  padding: 0px;
+  margin: 40px 23vw; 
+}
+
+p.plain {
+  font-size: 16px;
+  font-family: Verdana, Geneva, sans-serif;
+  color: #2B3856;
+  text-align: left;
+  padding: 10px;
+  margin: 0px 23vw; 
+}
+
+p.aboutme {
+  font-size: 18px;
+  font-family: Verdana, Geneva, sans-serif;
+  color: #2B3856;
+  text-align: center;
+  padding: 0px;
+  margin: 40px 23vw; 
+}
+
+p.pubs {
+  font-size: 18px;
+  font-family: Verdana, Geneva, sans-serif;
+  color: #2B3856;
+  text-align: left;
+  padding: 0px;
+  margin: 20px 23vw; 
+}
+
+p.caption{
+  font-size:12px; 
+  padding:0px; 
+  margin:0px;"
+  font-family: Verdana, Geneva, sans-serif;
+  color: #2B3856;
+  text-align: left;
+}
+
+a {
+  text-decoration: none;
+  color:   #800040
+}
+
+
+a:hover h1, a:hover, a:hover h2{
+  color: #bcc6cc;
+}
+
+a:hover .research-center-2col {
+  background-color: #2B3856;
+}
+
+a:hover .research-center-2col h2, a:hover .research-center-2col p {
+  color: white;
+}
+
+a:hover .research-center-1col {
+  background-color: #2B3856;
+}
+
+a:hover .research-center-1col h2, a:hover .research-center-1col p {
+  color: white;
+}
+
+
+
+/* Style space around heading text */
+.top_container {
+padding: 15px 0px;
+margin: 40px 23vw;
+}
+
+
+/* STYLE THE SPACING AROUND EACH ELEMENT IN THE TOPNAV LIST */
+/* Make the options display side-by-side (block would insert line breaks between each button) */
+.topnav_container ul li { 
+  display: inline; 
+  padding: 1em 2em;
+}
+
+
+/* Add pading to the navbar container */
+.topnav_container ul li { 
+
+}
+
+/* Style the buttons while hovering over the link */
+.topnav_container ul li a:hover {
+    color: white;
+    text-decoration: none; /* This removes underline */
+}
+
+/* STYLE THE ACTUAL TOPNAV LIST */
+.topnav { 
+    list-style-type: none;   /* Remove bullet symbols */
+    margin: 0px;
+    padding: 14px 0px;
+    overflow: hidden; /* What to do when the screen gets too narrow */
+    background-color: #bcc6cc;
+}
+
+ul.topnav{ 
+  text-align: center; 
+}
+
+
+ul.topnav li a {
+    display: inline-block;
+    text-align: center;
+    color: #2B3856;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 18 px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.img_center {
+    margin: 25px;
+    width: 35em;
+    height: 25em;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.first_col {
+    min-width: 300px;
+    max-width:400px;
+    height:400px;
+    float:left;
+    margin-left:200px;
+    margin-bottom: 150px;
+    border: solid black;
+}
+
+.second_col {
+    min-width: 300px; 
+    max-width:400px;
+    height: 400px;
+    float:left;
+    margin-left:200px;
+    margin-bottom: 150px;
+    border: solid black;
+}
+
+ /* Define column setup for research page icons */
+.research-edge-col   { 
+  width: 16%; 
+  float: left; 
+  min-height: 200px; 
+}
+
+.research-center-1col { 
+  width: 62%;
+  margin: 1% 2% 0% 2%; 
+  float: left; 
+  min-height: 200px; 
+}
+
+.research-center-2col { 
+  width: 29%;
+  margin: 1% 2% 0% 2%; 
+  float: left; 
+  min-height: 200px; 
+}
+
+.row::after {
+    content: "";
+    clear: both;
+    display: block;
+    width: 100%;
+}
