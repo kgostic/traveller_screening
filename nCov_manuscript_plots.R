@@ -10,51 +10,19 @@ library(pomp)
 ## \\\\\\\\\\\\\\ DEFINE GLOBAL VARIABLES ////////////////// ##
 ## ------------------------------------------------------------
 ## Set Global Vars
-pathogen=c("nCoV")
-pathtablab=c("2019-nCoV")
-par(mfrow = c(length(pathtablab), 1))
-
-#Specify efficacy parameters. These will be fed in to the external functions.
-rd=0.25 #efficacy of departure questionnaire (proportion of travelers that report honestly)
-ra=0.25 #efficacy of arrival questionnaire
-sd=0.7 #efficacy of departure fever screening (based on fever detection sensitivity)
-sa=0.7 #efficacy of arrival fever screening
 nboot = 1000    ## n sim samples
 popn = 100      ## population size of infected travelers
-flatA=0         ## Vestige from old code. If == 0, growing epidemic.
 scale.in = 1.2  ## Fixed scale parameter of gamma distribution
-mToAdmit = 4    ## days from onset to hospitalization. (Assume people don't travel after admit)
-
-
+## Labels for detection categories
 cat.labels = c('detected: departure fever screen', "detected: departure risk screen", "detected: arrival fever screen",
                "detected: arrival risk screen", 'missed: had both', 'missed: had fever', 'missed: had risk awareness', 'missed: undetectable')
-
-
+## Set colors
+cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'brown4', 'salmon2', 'firebrick1')
 
 
 ## -----------------------------------------------------
 ## \\\\\\\\\\\\\\ DEFINE FUNCTIONS ////////////////// ##
 ## -----------------------------------------------------
-
-# --------------
-# Distributions for fever and known exposure
-# --------------
-fg.distn<-function(type,pathogen){
-  # Fever study sample sizes
-  d1fn=c(74)
-  # Proportions that display fever
-  d1fv=c(0.77)
-  
-  ######## THIS NEEDS AN UPDATE! 
-  # Exposure study sample sizes
-  d1gn=c(1)
-  # Proportions with known exposure
-  d1gv=c(.1)
-  
-  if(type=="f"){
-    c(sum(d1fv*d1fn)/sum(d1fn),sum(d1fn))}else{
-      c(sum(d1gv*d1gn)/sum(d1gn),sum(d1gn))}
-}
 
 # ---------
 # Calculate infection age distributions for a growing epidemic
@@ -88,7 +56,7 @@ exposure.distn = function(x,r0, meanToAdmit, meanIncubate){
 
 ## --------------
 screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1, 
-                             phi.d, incubation.d, pathogen, relative=0, split1=0, arrival_screen, departure_screen, frac_evade=0){
+                             incubation.d, relative=0, split1=0, arrival_screen, departure_screen, frac_evade=0){
   ## Arrival Screening Decision Tree Model
   #   INPUTS:
   #   d = days since onset
@@ -99,9 +67,7 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
   #   sa = symptom screen effectiveness on arrival
   #   rd = risk factor screen effectiveness on departure
   #   ra = risk factor screen effectiveness on arrival
-  #   phi.d = call to function describing pdf of time from exposure to outcome
   #   incubation.d = call to function describing pdf of time from exposure to onset
-  #   pathogen = name of the pathogen (e.g. "H7N9")
   #   relative: this takes a logical value. The default is 0 or FALSE, which tells the function to return
   #                the absolute proprtion of travellers detected at arrival. If relative is set to 1 or TRUE, 
   #                the script will return the proportion of infected travellers detected at arrival given 
@@ -124,7 +90,10 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
   #                 missed.fever,
   #                 missed.risk,
   #                 not.detectable]
-  #         
+  #   arrival_screen: logical, should the model screen on arrival
+  #   departure_screen: logical as above
+  #   frac_evade: fration of infected travellers to intentially evade screening. Default is 0.
+  #
   #           ALL OUTPUTS ARE GIVEN AS THE PROPORTION OF INFECTED TRAVELLERS IN EACH OUTCOME CLASS
   
   ##Define an internal function to pass travellers in any detection class
@@ -305,8 +274,9 @@ screen.passengers = function(d, del.d, f, g, sd = 1, sa =1, rd = 1, ra = 1,
 
 
 # -------------------------------
-#get_frac_caught = function(tSinceExposed, ff, gg, R0, meanToAdmit, meanIncubate = NULL, dscreen, ascreen, shapeIncubate = NULL, scaleIncubate = 2.73){
-get_frac_caught = function(tSinceExposed, ff, gg, R0, meanToAdmit, dscreen, ascreen, incubation.d, frac_evaded){
+# Wrapper for screen.passengers: Calculate the fraction/probability of each screening outcome given a fixed time since exposure
+# Used in Fig. 2
+get_frac_caught = function(tSinceExposed, ff, gg, dscreen, ascreen, incubation.d, frac_evaded){
   ## Calculate the fraction/probability of each screening outcome given a fixed time since exposure
   ## INPUTS
   ## f1 - probability of fever at onset
@@ -323,80 +293,49 @@ get_frac_caught = function(tSinceExposed, ff, gg, R0, meanToAdmit, dscreen, ascr
   # # Get probability that symptoms have developed.
   # incubation.d<-(function(d)pgamma(d, shape = shapeIncubate, scale = scaleIncubate))
   ## Outputs
-  screen.passengers(tSinceExposed, del.d=1, ff, gg, sd, sa, rd, ra, phi.d, incubation.d, pathogen, relative = 0, split1 = 2, arrival_screen = ascreen, departure_screen = dscreen, frac_evaded)
+  screen.passengers(tSinceExposed, del.d=1, ff, gg, sd=.7, sa=.7, rd=.25, ra=.25, incubation.d, relative = 0, split1 = 2, arrival_screen = ascreen, departure_screen = dscreen, frac_evaded)
 }
 # ## Test function
-# get_frac_caught(tSinceExposed = 2, ff = .7, gg = .2, R0 = 2, meanToAdmit = 5.5, dscreen = TRUE, ascreen = FALSE, incubation.d)
+# get_frac_caught(tSinceExposed = 2, ff = .7, gg = .2, dscreen = TRUE, ascreen = TRUE, incubation.d = function(d){pgamma(d, 4, 1.8)}, frac_evaded = 0)
 # -------------------------------
 
 # -------------------------------
-## Write a function that repeats get_frac_caught over a grid of times since exposure
-get_frac_caught_over_time = function(ff, gg, R0, meanToAdmit, ascreen, dscreen, incubation.d, frac_evaded = 0){
+## Wrapper for get_frac_caught
+## Repeats get_frac_caught over a grid of times since exposure
+## Used in Fig. 2 analyses
+get_frac_caught_over_time = function(ff, gg, ascreen, dscreen, incubation.d, frac_evaded = 0){
   arrive.times=seq(0,15,0.1)
-  sapply(arrive.times, function(tt){get_frac_caught(tSinceExposed = tt, ff, gg, R0, meanToAdmit, dscreen, ascreen,incubation.d, frac_evaded)}) %>% t() %>% as.data.frame() %>% mutate(
+  sapply(arrive.times, function(tt){get_frac_caught(tSinceExposed = tt, ff, gg, dscreen, ascreen,incubation.d, frac_evaded)}) %>% t() %>% as.data.frame() %>% mutate(
     days.since.exposed = arrive.times)
 }
 # Test
-# get_frac_caught_over_time(ff = .7, gg = .2, R0 = 2, meanToAdmit = 5.5, ascreen = TRUE, dscreen = FALSE, incubation.d, frac_evaded = .1)
+# get_frac_caught_over_time(ff = .7, gg = .2, ascreen = TRUE, dscreen = TRUE, incubation.d = function(d){pgamma(d, 4, 1.8)}, frac_evaded = 0)
 # -------------------------------
 
 
 
 # -------------------------------
+# Wrapper that simulates a population of individuals, each with different times since exposure
 # Simulate the fraction of the population caught or missed in a growing epidemic.
-one_sim = function(meanInc, R0, f0, g0, f.sens, g.sens, gg, del.d, as, ds, meanToAdmit = 4){
+# Below, call this function repeatedly with different parameter inputs. (Fig. 3)
+one_sim = function(meanInc, R0, f0, g0, f.sens, g.sens, gg, del.d, as, ds, meanToAdmit){
+  
   ## For each individual in the population, draw times since exposure from the appropriate distribution
-  infAge=sapply(c(1:popn),function(x){exposure.distn(runif(1, 0, 1),r0 = R0, meanToAdmit = meanToAdmit, meanIncubate = meanInc, flat=0)})
+  infAge=sapply(c(1:popn),function(x){exposure.distn(runif(1, 0, 1),r0 = R0, meanToAdmit = meanToAdmit, meanIncubate = meanInc)})
   
   this.inc.cdf = (function(x){pgamma(q = x, shape = meanInc/scale.in, scale = scale.in)})           ## Set incubation period distribution
   
-  ## Fever and risk screening
-  # outcomesBoth=sapply(infAge,function(x){
-  #   f0=rbinom(1,fever.sample.size,fever.prob)/fever.sample.size                                 ## Draw binomial probability of fever
-  #   g0=rbinom(1,risk.sample.size, risk.prob)/risk.sample.size                                   ## Draw binomial probability of known risk  
-  #   screenWrapper(x, f0, g0)})           
-  outcomesBoth=sapply(infAge, FUN = function(x){screen.passengers(x, del.d, f0, g0, f.sens, f.sens, g.sens, g.sens, 0, this.inc.cdf, pathogen, relative = 0, split1 = 2, arrival_screen=as, departure_screen=ds)})
-  ## Output individual probability missed
-  pCaught_both = colSums(outcomesBoth[1:4,])
-  caughtBoth = sapply(pCaught_both,function(x){ifelse(x<runif(1, 0, 1),0,1)})                   ## Draw whether individual was missed
+  ## Get probability of a given screening outcome for each traveller in the population
+  outcomes=sapply(infAge, FUN = function(x){screen.passengers(x, del.d, f0, g0, f.sens, f.sens, g.sens, g.sens, this.inc.cdf, relative = 0, split1 = 2, arrival_screen=as, departure_screen=ds)})
+  ## Output individual probability caught
+  pCaught = colSums(outcomes[1:4,])
+  caught = sapply(pCaught,function(x){ifelse(x<runif(1, 0, 1),0,1)})                   ## Draw whether the individual in question was detected
   
-  # 
-  # ## Fever only
-  # # outcomesFever=sapply(infAge,function(x){
-  # #   f0=rbinom(1,fever.sample.size,fever.prob)/fever.sample.size  ## Draw binomial probability of fever
-  # #   g0=0  ## Draw binomial probability of known risk  
-  # #   screenWrapper(x, f0, g0)})     
-  # outcomesFever=sapply(infAge, FUN = function(x){screen.passengers(x, del.d, f0, 0, sd, sa, rd, ra, phi.d, this.inc.cdf, pathogen, relative = 0, split1 = 2, arrival_screen, departure_screen)})
-  # pCaught_fever = colSums(outcomesFever[1:4,])                                                    ## Output individual probability missed
-  # caughtFever = sapply(pCaught_fever,function(x){ifelse(x<runif(1, 0, 1),0,1)})                   ## Draw whether individual was missed
-  # 
-  # 
-  # ## Risk only
-  # # outcomesRisk=sapply(infAge,function(x){
-  # #   f0=0  ## Draw binomial probability of fever
-  # #   g0=rbinom(1,risk.sample.size, risk.prob)/risk.sample.size                                   ## Draw binomial probability of known risk  
-  # #   screenWrapper(x, f0, g0)})                                                                  ## Output individual probability missed
-  # outcomesRisk=sapply(infAge, FUN = function(x){screen.passengers(x, del.d, 0, g0, sd, sa, rd, ra, phi.d, this.inc.cdf, pathogen, relative = 0, split1 = 2, arrival_screen, departure_screen)})
-  # pCaught_risk = colSums(outcomesRisk[1:4,])
-  # caughtRisk = sapply(pCaught_risk,function(x){ifelse(x<runif(1, 0, 1),0,1)})                   ## Draw whether individual was missed
-  # 
-  ## Return frac.missed.both, frac.missed.fever, frac.missed.risk
-  # return(c(frac.missed.both = 1- sum(caughtBoth)/popn,
-  #          frac.missed.fever = 1- sum(caughtFever)/popn,
-  #          frac.missed.risk = 1- sum(caughtRisk)/popn))
-  
-  # if(outtype == 'caught'){
-  #   return(c(frac.missed.both = 1- sum(caughtBoth)/popn,
-  #                     frac.missed.fever = 1- sum(caughtFever)/popn,
-  #                     frac.missed.risk = 1- sum(caughtRisk)/popn))
-  # }else if(outtype == 'meanOutcomes'){
-  return(list(outcomesBoth = rowMeans(outcomesBoth),
-              # outcomesFever = rowMeans(outcomesFever),
-              # outcomesRisk = rowMeans(outcomesRisk),
-              caught = c(frac.missed.both = 1- sum(caughtBoth)/popn)))
+  return(list(outcomes = rowMeans(outcomes),
+              caught = c(frac.missed.both = 1- sum(caught)/popn)))
 }
 # ## Test
-# one_sim(meanInc = 5.5, R0 = 2,f0 = .7, g0 = .1, f.sens = .7, g.sens = .2, del.d = 1, as = TRUE, ds = FALSE)
+# one_sim(meanInc = 5.5, R0 = 3, f0 = .7, g0 = .2, f.sens = .7, g.sens = .25, gg = .1, del.d = 1, as = TRUE, ds = FALSE, meanToAdmit = 6)
 # -------------------------------
 
 
@@ -406,18 +345,20 @@ one_sim = function(meanInc, R0, f0, g0, f.sens, g.sens, gg, del.d, as, ds, meanT
 
 
 
-## ------------------------------------------------------------
-## \\\\\\\\\\\\\\       MAKE PLOTS     ////////////////// ##
-## ------------------------------------------------------------
+## --------------------------------------------------------------------------
+## \\\\\\\\\\\\\\       Fig. 2  & supplementary figs   ////////////////// ##
+## --------------------------------------------------------------------------
 ## Fig. 2. Plot the individual probability of different screening outcomes vs. times since exposure
 ##   Run across a grid of probabilities of detectable symptoms and mean incubation periods
 ##   Assume no one evades screening
 
-input_grid = expand.grid(ffs = c(.5, .75, .98),                  ## Set grid of values to test
-                         meanIncs = c(3, 5, 7))
+## Set grid of values to test for ff (fraction with symptoms, 1-frac subclinical), and mean incubation (days)
+input_grid = expand.grid(ffs = c(.5, .75, .95),                 
+                         meanIncs = c(4, 5.5, 7))
+## Wrapper to repeat across input grid parameter values
 gridWrapper = function(ff.in, mInc.in){
   incFun = function(x){pgamma(x, shape = mInc.in/scale.in, scale = scale.in)}
-  get_frac_caught_over_time(ff = ff.in, gg = 0.2, R0 = 2, meanToAdmit = mToAdmit, ascreen = TRUE, dscreen = TRUE, incubation.d = incFun, frac_evaded = 0)
+  get_frac_caught_over_time(ff = ff.in, gg = 0.2, ascreen = TRUE, dscreen = TRUE, incubation.d = incFun, frac_evaded = 0)
 }
 
 
@@ -427,7 +368,6 @@ apply(X = input_grid, MARGIN = 1, FUN = function(ii){gridWrapper(ii[1], ii[2])})
          meanIncubate = rep(input_grid$meanIncs, each = nrow(.)/nrow(input_grid))) -> gridOutputs
 
 ## Reformat for plotting
-cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'brown4', 'salmon2', 'firebrick1')
 gridOutputs %>%
   mutate(dFeverMin = 0, dFeverMax = dFeverMin + caught.dpt.fever,
          dRiskMin = dFeverMax, dRiskMax = dRiskMin + caught.dpt.risk,
@@ -441,18 +381,18 @@ gridOutputs %>%
   select(days.since.exposed, fever, meanIncubate, contains('Min'), contains('Max')) %>%
   ## Pivot to long data frame
   pivot_longer(cols = dFeverMin:ndeMax, names_to = c('outcome', 'minOrMax'), names_pattern = '(\\w+)(M\\w\\w)', values_to = 'yy') -> temp
+
 ## Use full join to create columns for time, ymin, ymax, and band type
 full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by = c('days.since.exposed', 'fever', 'meanIncubate', 'outcome'), suffix = c('min', 'max'))%>%
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0((1-unique(fever))*100,"% symptomatic")),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = rev(unique(fever)), labels = rev(paste0((1-unique(fever))*100,"% subclinical"))),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr', 'nd')), 
                           labels =(rev(cat.labels)))) -> rib
+blackline <- filter(rib,outcome=="detected: arrival risk screen") # Extract height of dotted line
 ## Plot
-## Plot
-blackline <- filter(rib,outcome=="detected: arrival risk screen")
 ggplot(rib)+
   geom_ribbon(aes(x = days.since.exposed, ymin = yymin, ymax = yymax, fill = outcome))+
   facet_grid(fever~meanIncubate) +
@@ -470,7 +410,7 @@ ggsave('2020_nCov/Fig2_grid_of_ribbon_plots.png', width = 8, height = 4.5, units
 ## Fig 2. Supplemtary figure 1. Departure screening only.
 gridWrapper = function(ff.in, mInc.in){
   incFun = function(x){pgamma(x, shape = mInc.in/scale.in, scale = scale.in)}
-  get_frac_caught_over_time(ff = ff.in, gg = 0.2, R0 = 2, meanToAdmit = mToAdmit, ascreen = FALSE, dscreen = TRUE, incubation.d = incFun, frac_evaded = 0)
+  get_frac_caught_over_time(ff = ff.in, gg = 0.2, ascreen = FALSE, dscreen = TRUE, incubation.d = incFun, frac_evaded = 0)
 }
 apply(X = input_grid, MARGIN = 1, FUN = function(ii){gridWrapper(ii[1], ii[2])}) %>%                                                                
   bind_rows() %>% as.tbl() %>%
@@ -495,20 +435,20 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0((1-unique(fever))*100,"% symptomatic")),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = rev(unique(fever)), labels = rev(paste0((1-unique(fever))*100,"% subclinical"))),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr','nd')), 
-                          labels =(rev(cat.labels)))) %>%
+                          labels =(rev(cat.labels))))-> rib
+blackline <- filter(rib,outcome=="detected: arrival risk screen")
   ## Plot
-  ## Plot
-  ggplot()+
+  ggplot(rib)+
   geom_ribbon(aes(x = days.since.exposed, ymin = yymin, ymax = yymax, fill = outcome))+
+  geom_line(data=blackline,aes(x=days.since.exposed,y=yymax),lty=2)+
   facet_grid(fever~meanIncubate) +
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
   ylab('Percentage of exposed individuals detained or cleared')+
   scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
-  
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2S1_grid_of_ribbon_plots_departure_only.png', width = 8, height = 4.5, units = 'in')
 
@@ -518,7 +458,7 @@ ggsave('2020_nCov/Fig2S1_grid_of_ribbon_plots_departure_only.png', width = 8, he
 ## Fig 2. Supplemtary figure 2. Arrival screening only.
 gridWrapper = function(ff.in, mInc.in){
   incFun = function(x){pgamma(x, shape = mInc.in/scale.in, scale = scale.in)}
-  get_frac_caught_over_time(ff = ff.in, gg = 0.2, R0 = 2, meanToAdmit = mToAdmit, ascreen = TRUE, dscreen = FALSE, incubation.d = incFun, frac_evaded = 0)
+  get_frac_caught_over_time(ff = ff.in, gg = 0.2, ascreen = TRUE, dscreen = FALSE, incubation.d = incFun, frac_evaded = 0)
 }
 apply(X = input_grid, MARGIN = 1, FUN = function(ii){gridWrapper(ii[1], ii[2])}) %>%                                                                
   bind_rows() %>% as.tbl() %>%
@@ -544,14 +484,15 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
   select(-starts_with('min')) %>% 
   filter(outcome !='nde') %>%
   ## Clean up categorical variables so that plot labels are publication quality 
-  mutate(fever = factor(fever, levels = unique(fever), labels = paste0((1-unique(fever))*100,"% symptomatic")),  ## Rename levels for nice plotting
+  mutate(fever = factor(fever, levels = rev(unique(fever)), labels = rev(paste0((1-unique(fever))*100,"% symptomatic"))),  ## Rename levels for nice plotting
          meanIncubate = factor(meanIncubate, levels = unique(meanIncubate), labels = paste0('Mean incubation ', unique(meanIncubate), 'd')),
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr','nd')), 
-                          labels =(rev(cat.labels)))) %>%
+                          labels =(rev(cat.labels)))) -> rib
+blackline <- filter(rib,outcome=="detected: arrival risk screen")
   ## Plot
-  ## Plot
-  ggplot()+
+  ggplot(rib)+
   geom_ribbon(aes(x = days.since.exposed, ymin = yymin, ymax = yymax, fill = outcome))+
+  geom_line(data=blackline,aes(x=days.since.exposed,y=yymax),lty=2)+
   facet_grid(fever~meanIncubate) +
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
@@ -564,29 +505,22 @@ ggsave('2020_nCov/Fig2S2_grid_of_ribbon_plots_arrival_only.png', width = 8, heig
 
 
 
+
+
+## -------------------------------------------------------------------------
+## \\\\\\\\\\\\\\       Fig. 3 & supplementary figs    ////////////////// ##
+## -------------------------------------------------------------------------
 ## Generate a range of par combos to test
 ## Use Latin Hypercube Sampling to span plausible parameter ranges
-low.vals = c(gg = .05, f.sens = .6, g.sens = .05, mInc = 3, R0 = 1.5, meanToAdmit = 3)
-high.vals = c(gg = .2, f.sens = .95, g.sens = .25, mInc = 7, R0 = 4, meanToAdmit = 6)
-parsets = sobolDesign(lower = low.vals, upper = high.vals, nseq = nboot)
+low.vals = c(gg = .05, f.sens = .6, g.sens = .05, mInc = 4, R0 = 2, meanToAdmit = 3)
+high.vals = c(gg = .40, f.sens = .90, g.sens = .25, mInc = 7, R0 = 4, meanToAdmit = 7)
+parsets = sobolDesign(lower = low.vals, upper = high.vals, nseq = nboot)  # sobolDesign from package pomp draws LHS samples
+## Replicate the list of parsets across each subclinical case fraction tested
 parsets = bind_rows(parsets, parsets, parsets) %>% mutate(ff = rep(c(.5, .75, .95), each = nboot))
 
-
-## Plot tested parameter ranges
-data.frame(par = factor(names(low.vals)[-4], levels = names(low.vals[-4]), labels = c('Frac. aware of exposure', 'Sensitivy of symptom screen', 'Sensitivity of risk screen', 'R0')),
-           lows = low.vals[-4],
-           highs = high.vals[-4]) %>%
-  mutate(labs = sprintf('%2.2f-%2.2f', lows, highs)) %>%
-  ggplot()+
-  geom_segment(aes(x = lows, xend = highs, y = par, yend = par), size = 2, color = 'darkblue') +
-  geom_text(aes(x = (lows+highs)/2, y = as.numeric(par)+.2, label = labs, hjust = 0.5), size = 2.5)+
-  theme_bw() +
-  xlab('Assumed range')+
-  ylab('Parameter') -> parRanges
-
-## Plot plausible incubation period distributions
+## Plot plausible incubation period distributions (Fig. 3 - supplement 1)
 xx = seq(0, 25, by = .01)
-best = data.frame(x=xx) %>% mutate(value = dgamma(x, shape = 1.6, scale = scale.in))
+best = data.frame(x=xx) %>% mutate(value = dgamma(x, shape = 5.7/scale.in, scale = scale.in))
 sapply(X = seq(low.vals['mInc'], high.vals['mInc'], by = .5), FUN = function(mm){dgamma(xx, shape = mm/scale.in, scale = scale.in)}) -> gammaFits
 colnames(gammaFits) = seq(low.vals['mInc'], high.vals['mInc'], by = .5)
 as.data.frame(gammaFits) %>%
@@ -595,17 +529,20 @@ as.data.frame(gammaFits) %>%
   ggplot()+
   geom_line(aes(x = x, y = value, color = variable), size = .6, alpha = .5, show.legend = TRUE)+
   geom_line(data = best, aes(x = x, y = value))+
-  xlab('days')+
+  xlab('incubation period (days)')+
   ylab('density')+
-  scale_color_discrete(name='mean days \nincubation')+
+  scale_color_viridis_d(name='mean (days)')+
   theme_classic() -> incPeriods
+png(filename = '2020_nCov/Fig3S1_parRanges.png', width = 6, height = 4, units = 'in', res = 480)
+grid.arrange(incPeriods, nrow = 1, ncol = 1)
+dev.off()
 
 
 
 
-
-## Simulate
-reset = TRUE
+## Simulate and save population outcomes
+## This takes about 10 mins to run. Could be parallelized easliy.
+reset = FALSE # If true, rebuild output files. Else, load saved files.
 ## Get outcomes for both arrival and departure
 if(!file.exists('bootList_ad.RData')|reset){
   bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE, meanToAdmit = mToAdmit)}
@@ -655,8 +592,10 @@ if(!file.exists('bootList_a.RData')|reset){
   load('bootList_a.RData')
 }
 
+
+
 # -------------------------------
-### Fraction missed
+### Fraction Caught (Fig. 3A)
 # -------------------------------
 data.frame(departure.only = sapply(bootList_d[2,], function(yy){yy}),
            arrival.only = sapply(bootList_a[2,], function(yy){yy}),
@@ -693,12 +632,10 @@ ggplot(temp)+
   facet_wrap(~scenario)   -> fracCaught
 fracCaught
 
-#ggsave('2020_nCov/Shiny_fraction_missed.pdf', width = 4, height = 4, units = 'in')  
 
 # -------------------------------
-## Stacked barplot
+## Stacked barplot (Fig. 3B)
 # -------------------------------
-cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'brown4', 'salmon2', 'firebrick1')
 bind_rows(
   departureMeans = (sapply(bootList_d[1,], function(yy){yy}) %>% t() %>% as.data.frame()),
   arrivalMeans = (sapply(bootList_a[1,], function(yy){yy}) %>% t() %>% as.data.frame()),
@@ -734,14 +671,9 @@ dashedLine = group_by(stackedB, strategy, scenario) %>%
   theme(legend.position = 'bottom') -> stackedBars
 stackedBars
 
-png(filename = '2020_nCov/Fig3S1_parRanges.png', width = 5.5, height = 7, units = 'in', res = 480)
-grid.arrange(parRanges, incPeriods, nrow = 2, ncol = 1)
-dev.off()
 
+## Layout fig. 3B and save
 png('2020_nCov/Fig3_populationOutcomes.png', width = 7, height = 7, units = 'in', res = 480)
 grid.arrange(fracCaught, stackedBars, nrow = 2, heights = c(2,3))
 dev.off()
-
-
-#make_plots(meanIncubate = 5.5, meanToAdmit = 4.5, R0 = 2, ff = .7, gg = .2, flight.hrs = 24, screenType = 'both', nboot = 100, popn = 100)
 
