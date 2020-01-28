@@ -3,7 +3,11 @@
 
 ## \\\\\\\\\\\\ INCUBATION PERIOD //////////////
 outsideWuhan = read.csv('2020_nCov/outside_wuhan.csv', stringsAsFactors = FALSE) 
-## Get data and reformat.
+## Get full linelist and extract cases that meet our criteria:
+##   Known time of onset
+##   Known time of arrival and departure from source city
+##   Not resident of source city
+##   Not employed in source city
 outsideWuhan %>% 
   select(age, sex, date_onset_symptoms, date_admission_hospital, date_arrive_Wuhan, date_depart_Wuhan, city, province, Home, source) %>%
   filter(date_arrive_Wuhan != "" & date_depart_Wuhan != "") %>%
@@ -18,10 +22,11 @@ incubationPeriods$date_depart_Wuhan[fixid] = incubationPeriods$date_onset_sympto
 incubationPeriods %>% ungroup() %>%
   mutate(mid_incubation = (min_incubation + max_incubation)/2 ,
          id = 1:nrow(.)) -> incubationPeriods
+## Save valid entries
 write.csv(x = incubationPeriods, file = '2020_nCov/known_exposures.csv', row.names = FALSE)
 
 
-
+## Write functions to calculate MLEs
 ## Fit incubation period to distribution
 nll_gamma = function(pars, dd, prof.par = 'none', prof.val = NULL){
   ## INPUTS - dd is the data (a vector of times elapsed),
@@ -53,7 +58,6 @@ nll_lognormal = function(pars, dd){
   ## OUTPUTS - the negative log likelihood of the data given the parameters
   - (dlnorm(dd, meanlog = log(mu), sdlog = log(sd), log = TRUE) %>% sum())
 }
-
 
 ## Bootstrap to represent possible times of incubation
 nBoot = 1000  ## Repeat 1000 times
@@ -145,7 +149,7 @@ sprintf('weibull: MLE shape is %1.2f (%1.2f, %1.2f). MLE scale is %1.2f (%1.f, %
 
 
 
-## Compare mean AIC across models
+## Compare AIC for each distribution fit across runs
 lapply(bootResults, function(ll) ll[, c('type', 'delAIC', 'AIC')]) %>% bind_rows() %>%
   group_by(type) %>%
   summarize(nbest = sum(delAIC == 0),

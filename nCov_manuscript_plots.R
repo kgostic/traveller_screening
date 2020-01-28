@@ -19,12 +19,11 @@ rd=0.25 #efficacy of departure questionnaire (proportion of travelers that repor
 ra=0.25 #efficacy of arrival questionnaire
 sd=0.7 #efficacy of departure fever screening (based on fever detection sensitivity)
 sa=0.7 #efficacy of arrival fever screening
-nboot = 1000        # n sim samples
-popn = 100        # population size of infected travelers
-#Growing (0) or flat (1) epidemic
-flatA=0
-scale.in = 2.8
-mToAdmit = 4 ## days from onset to hospitalization. (Assume people don't travel after admit)
+nboot = 1000    ## n sim samples
+popn = 100      ## population size of infected travelers
+flatA=0         ## Vestige from old code. If == 0, growing epidemic.
+scale.in = 1.2  ## Fixed scale parameter of gamma distribution
+mToAdmit = 4    ## days from onset to hospitalization. (Assume people don't travel after admit)
 
 
 cat.labels = c('detected: departure fever screen', "detected: departure risk screen", "detected: arrival fever screen",
@@ -75,42 +74,15 @@ pdf.cdf.travel<-function(x,r0,gen.time,type){
 }
 ## --------------
 
-
-## --------------
-exposure.outcome<-function(x,pathogen,r0 = 2,type=1,flat=0){
-  #pathogen-specific median time to outcome (median exposure -> onset + onset -> outcome)
-  if(pathogen == "H7N9"){f1<-3.1+4.2}
-  if(pathogen == "MERS"){f1<-(5.2*7+5.5*23)/(7+23)+5}  ## (5.2*7+5.5*23)/(7+23) is a weighted average based on sample sizes of individual studies
-  if(pathogen == "SARS"){f1<-6.4+4.85}
-  if(pathogen == "nCoV"){f1<-4.5+5.5}
-  median=f1
-  # Stable epidemic
-  if(flat==1){
-    if(type==1){
-      ifelse(x<=f1,1/(f1),0) #pdf
-    }else{
-      ifelse(x<=f1,x/(f1),1) #cdf
-    }
-  }else{
-    # Growing epidemic
-    if(type==1){
-      pdf.cdf.travel(x,r0,median,type)
-    }else{
-      pdf.cdf.travel(x,r0,median,type)
-    }
-  }
+## -------------------------
+exposure.distn = function(x,r0, meanToAdmit, meanIncubate){
+  ## Draw from the infection age cdf using an input uniform random variable, x
+  (data.frame(xx = seq(0, 25, by = 0.1)) %>%             # Evaluate cdf at a range of values
+     mutate(c.dens = pdf.cdf.travel(xx, r0, meanToAdmit+meanIncubate, type = 2)) %>%
+     filter(c.dens>x) %>%                                # Extract the first value at which the cum.dens > x
+     pull(xx))[1]
 }
-## --------------
-
-
-## --------------
-exposure.distn<-function(x,pathogen,type=2,flat=0){
-  # Use uniform random variable x to make random draw from specified infection age distribution
-  a=0
-  while(x>exposure.outcome(a,pathogen,type,flat)){a=a+0.1}
-  a
-}
-## --------------
+## -------------------------
 
 
 
@@ -372,9 +344,9 @@ get_frac_caught_over_time = function(ff, gg, R0, meanToAdmit, ascreen, dscreen, 
 
 # -------------------------------
 # Simulate the fraction of the population caught or missed in a growing epidemic.
-one_sim = function(meanInc, R0, f0, g0, f.sens, g.sens, gg, del.d, as, ds){
+one_sim = function(meanInc, R0, f0, g0, f.sens, g.sens, gg, del.d, as, ds, meanToAdmit = 4){
   ## For each individual in the population, draw times since exposure from the appropriate distribution
-  infAge=sapply(c(1:popn),function(x){exposure.distn(runif(1, 0, 1),pathogen,flat=0)})
+  infAge=sapply(c(1:popn),function(x){exposure.distn(runif(1, 0, 1),r0 = R0, meanToAdmit = meanToAdmit, meanIncubate = meanInc, flat=0)})
   
   this.inc.cdf = (function(x){pgamma(q = x, shape = meanInc/scale.in, scale = scale.in)})           ## Set incubation period distribution
   
@@ -594,8 +566,8 @@ ggsave('2020_nCov/Fig2S2_grid_of_ribbon_plots_arrival_only.png', width = 8, heig
 
 ## Generate a range of par combos to test
 ## Use Latin Hypercube Sampling to span plausible parameter ranges
-low.vals = c(gg = .05, f.sens = .6, g.sens = .05, mInc = 3, R0 = 1.5)
-high.vals = c(gg = .5, f.sens = .95, g.sens = .4, mInc = 7, R0 = 4)
+low.vals = c(gg = .05, f.sens = .6, g.sens = .05, mInc = 3, R0 = 1.5, meanToAdmit = 3)
+high.vals = c(gg = .2, f.sens = .95, g.sens = .25, mInc = 7, R0 = 4, meanToAdmit = 6)
 parsets = sobolDesign(lower = low.vals, upper = high.vals, nseq = nboot)
 parsets = bind_rows(parsets, parsets, parsets) %>% mutate(ff = rep(c(.5, .75, .95), each = nboot))
 
@@ -636,7 +608,7 @@ as.data.frame(gammaFits) %>%
 reset = TRUE
 ## Get outcomes for both arrival and departure
 if(!file.exists('bootList_ad.RData')|reset){
-  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE, meanToAdmit = mToAdmit)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
@@ -644,14 +616,15 @@ if(!file.exists('bootList_ad.RData')|reset){
          f.sens = parsets$f.sens,
          g.sens = parsets$g.sens,
          mInc = parsets$mInc,
-         r0 = parsets$R0) -> bootList_ad
+         r0 = parsets$R0, 
+         mToAdmit = parsets$meanToAdmit) -> bootList_ad
   save(bootList_ad, file = 'bootList_ad.RData')
 }else{
   load('bootList_ad.RData')
 }
 ## Get outcomes for departure only
 if(!file.exists('bootList_d.RData')|reset){
-  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=FALSE, ds=TRUE)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=FALSE, ds=TRUE, meanToAdmit = mToAdmit)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
@@ -659,14 +632,15 @@ if(!file.exists('bootList_d.RData')|reset){
          f.sens = parsets$f.sens,
          g.sens = parsets$g.sens,
          mInc = parsets$mInc, 
-         r0 = parsets$R0) -> bootList_d
+         r0 = parsets$R0,
+         mToAdmit = parsets$meanToAdmit) -> bootList_d
   save(bootList_d, file = 'bootList_d.RData')
 }else{
   load('bootList_d.RData')
 }
 ## Get outcomes for arrival only
 if(!file.exists('bootList_a.RData')|reset){
-  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=FALSE)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=FALSE, meanToAdmit = mToAdmit)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
@@ -674,7 +648,8 @@ if(!file.exists('bootList_a.RData')|reset){
          f.sens = parsets$f.sens,
          g.sens = parsets$g.sens,
          mInc = parsets$mInc,
-         r0 = parsets$R0) -> bootList_a
+         r0 = parsets$R0,
+         mToAdmit = parsets$meanToAdmit) -> bootList_a
   save(bootList_a, file = 'bootList_a.RData')
 }else{
   load('bootList_a.RData')
