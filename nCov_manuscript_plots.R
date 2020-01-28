@@ -561,7 +561,7 @@ if(!file.exists('bootList_ad.RData')|reset){
 }
 ## Get outcomes for departure only
 if(!file.exists('bootList_d.RData')|reset){
-  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=FALSE, ds=TRUE, meanToAdmit = mToAdmit)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=FALSE, ds=TRUE, meanToAdmit = mToAdmit)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
