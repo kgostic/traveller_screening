@@ -399,7 +399,7 @@ ggplot(rib)+
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
   geom_line(data=blackline,aes(x=days.since.exposed,y=yymax),lty=2)+
-  ylab('Percentage of exposed individuals detained or cleared')+
+  ylab('Percentage of exposed individuals detected or missed')+
   scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2_grid_of_ribbon_plots.png', width = 8, height = 4.5, units = 'in')
@@ -447,7 +447,7 @@ blackline <- filter(rib,outcome=="detected: arrival risk screen")
   facet_grid(fever~meanIncubate) +
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
-  ylab('Percentage of exposed individuals detained or cleared')+
+  ylab('Percentage of exposed individuals detected or missed')+
   scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2S1_grid_of_ribbon_plots_departure_only.png', width = 8, height = 4.5, units = 'in')
@@ -496,7 +496,7 @@ blackline <- filter(rib,outcome=="detected: arrival risk screen")
   facet_grid(fever~meanIncubate) +
   scale_fill_manual(values = cols[8:1])+
   theme_bw() +
-  ylab('Percentage of exposed individuals detained or cleared')+
+  ylab('Percentage of exposed individuals detected or missed')+
   scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2S2_grid_of_ribbon_plots_arrival_only.png', width = 8, height = 4.5, units = 'in')
