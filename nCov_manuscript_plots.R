@@ -6,6 +6,7 @@ library(pomp)
 
 
 
+
 ## ------------------------------------------------------------
 ## \\\\\\\\\\\\\\ DEFINE GLOBAL VARIABLES ////////////////// ##
 ## ------------------------------------------------------------
@@ -354,7 +355,7 @@ one_sim = function(meanInc, R0, f0, g0, f.sens, g.sens, gg, del.d, as, ds, meanT
 
 ## Set grid of values to test for ff (fraction with symptoms, 1-frac subclinical), and mean incubation (days)
 input_grid = expand.grid(ffs = c(.5, .75, .95),                 
-                         meanIncs = c(4, 5.5, 7))
+                         meanIncs = c(4.5, 5.5, 6.5))
 ## Wrapper to repeat across input grid parameter values
 gridWrapper = function(ff.in, mInc.in){
   incFun = function(x){pgamma(x, shape = mInc.in/scale.in, scale = scale.in)}
@@ -512,8 +513,8 @@ ggsave('2020_nCov/Fig2S2_grid_of_ribbon_plots_arrival_only.png', width = 8, heig
 ## -------------------------------------------------------------------------
 ## Generate a range of par combos to test
 ## Use Latin Hypercube Sampling to span plausible parameter ranges
-low.vals = c(gg = .05, f.sens = .6, g.sens = .05, mInc = 4, R0 = 2, meanToAdmit = 3)
-high.vals = c(gg = .40, f.sens = .90, g.sens = .25, mInc = 7, R0 = 4, meanToAdmit = 7)
+low.vals = c(gg = .05, f.sens = .6, g.sens = .05, mInc = 4.5, R0 = 1.5, meanToAdmit = 3)
+high.vals = c(gg = .40, f.sens = .90, g.sens = .25, mInc = 6.5, R0 = 3.5, meanToAdmit = 7)
 parsets = sobolDesign(lower = low.vals, upper = high.vals, nseq = nboot)  # sobolDesign from package pomp draws LHS samples
 ## Replicate the list of parsets across each subclinical case fraction tested
 parsets = bind_rows(parsets, parsets, parsets) %>% mutate(ff = rep(c(.5, .75, .95), each = nboot))
@@ -542,8 +543,10 @@ dev.off()
 
 ## Simulate and save population outcomes
 ## This takes about 10 mins to run. Could be parallelized easliy.
-reset = FALSE # If true, rebuild output files. Else, load saved files.
+reset = TRUE # If true, rebuild output files. Else, load saved files.
 ## Get outcomes for both arrival and departure
+cl = makeCluster(5)
+
 if(!file.exists('bootList_ad.RData')|reset){
   bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE, meanToAdmit = mToAdmit)}
   ## Simulate one population for each plausible paramter set
