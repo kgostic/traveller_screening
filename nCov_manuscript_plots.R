@@ -10,10 +10,24 @@ library(pomp)
 ## ------------------------------------------------------------
 ## \\\\\\\\\\\\\\ DEFINE GLOBAL VARIABLES ////////////////// ##
 ## ------------------------------------------------------------
-## Set Global Vars
+###  SET FIG. 2 INPUTS
+fracsSubclinical = c(.5, .75, .95) ## Set fractions of subclincal cases (Fig. 2)
+incubationMeans = c(4.5, 5.5, 6.5) ## Set mean incubation periods (Fig. 2)
+
+
+## SET FIG. 3 INPUTS
+## gg = prob. aware of exposure risk
+## f.sens = sensitivity of thermal scanners for fever
+## g.sens = "sensitivity" (i.e. prob of thruthful self-reporting) on risk questionnaire
+## mInc = mean incubation period (days)
+## R0 - R0
+## meanToAdmit - mean days from onset of symptoms to isolation (affects maximum time from exposure to iniiation of travel)
+low.vals = c(gg = .05, f.sens = .6, g.sens = .05, mInc = 4.5, R0 = 1.5, meanToAdmit = 3)  ## Define low and high ranges for LHS (as in Table 1)
+high.vals = c(gg = .40, f.sens = .90, g.sens = .25, mInc = 6.5, R0 = 3.5, meanToAdmit = 7)
 nboot = 1000    ## n sim samples
-popn = 100      ## population size of infected travelers
-scale.in = 1.2  ## Fixed scale parameter of gamma distribution
+popn = 30      ## population size of infected travelers
+scale.in = 1.2  ## Fixed scale parameter of gamma-distributed incubation
+best.shape = 5.7 ## Best-estimate shape parameter of gamma-distributed incubation
 ## Labels for detection categories
 cat.labels = c('detected: departure fever screen', "detected: departure risk screen", "detected: arrival fever screen",
                "detected: arrival risk screen", 'missed: had both', 'missed: had fever', 'missed: had risk awareness', 'missed: undetectable')
@@ -330,10 +344,14 @@ one_sim = function(meanInc, R0, f0, g0, f.sens, g.sens, gg, del.d, as, ds, meanT
   outcomes=sapply(infAge, FUN = function(x){screen.passengers(x, del.d, f0, g0, f.sens, f.sens, g.sens, g.sens, this.inc.cdf, relative = 0, split1 = 2, arrival_screen=as, departure_screen=ds)})
   ## Output individual probability caught
   pCaught = colSums(outcomes[1:4,])
-  caught = sapply(pCaught,function(x){ifelse(x<runif(1, 0, 1),0,1)})                   ## Draw whether the individual in question was detected
+  binaryOutcome = sapply(pCaught,function(x){ifelse(x<runif(1, 0, 1),0,1)})                   ## Draw whether the individual in question was detected
+  ## Output a logical vector: were the first n individauls detained?
+  firstNCaught = sapply(1:30, function(nn) sum(1-binaryOutcome[1:nn]) == 0)
   
   return(list(outcomes = rowMeans(outcomes),
-              caught = c(frac.missed.both = 1- sum(caught)/popn)))
+              caught = c(frac.missed.both = 1- sum(binaryOutcome)/popn),
+              indivCaught = binaryOutcome,
+              firstNCaught = firstNCaught))
 }
 # ## Test
 # one_sim(meanInc = 5.5, R0 = 3, f0 = .7, g0 = .2, f.sens = .7, g.sens = .25, gg = .1, del.d = 1, as = TRUE, ds = FALSE, meanToAdmit = 6)
@@ -354,9 +372,9 @@ one_sim = function(meanInc, R0, f0, g0, f.sens, g.sens, gg, del.d, as, ds, meanT
 ##   Assume no one evades screening
 
 ## Set grid of values to test for ff (fraction with symptoms, 1-frac subclinical), and mean incubation (days)
-input_grid = expand.grid(ffs = c(.5, .75, .95),                 
-                         meanIncs = c(4.5, 5.5, 6.5))
-## Wrapper to repeat across input grid parameter values
+input_grid = expand.grid(ffs = fracsSubclinical,                 
+                         meanIncs = incubationMeans); input_grid
+## Wrapper to repeat fig. 2 analysis across input grid parameter values
 gridWrapper = function(ff.in, mInc.in){
   incFun = function(x){pgamma(x, shape = mInc.in/scale.in, scale = scale.in)}
   get_frac_caught_over_time(ff = ff.in, gg = 0.2, ascreen = TRUE, dscreen = TRUE, incubation.d = incFun, frac_evaded = 0)
@@ -513,15 +531,13 @@ ggsave('2020_nCov/Fig2S2_grid_of_ribbon_plots_arrival_only.png', width = 8, heig
 ## -------------------------------------------------------------------------
 ## Generate a range of par combos to test
 ## Use Latin Hypercube Sampling to span plausible parameter ranges
-low.vals = c(gg = .05, f.sens = .6, g.sens = .05, mInc = 4.5, R0 = 1.5, meanToAdmit = 3)
-high.vals = c(gg = .40, f.sens = .90, g.sens = .25, mInc = 6.5, R0 = 3.5, meanToAdmit = 7)
 parsets = sobolDesign(lower = low.vals, upper = high.vals, nseq = nboot)  # sobolDesign from package pomp draws LHS samples
 ## Replicate the list of parsets across each subclinical case fraction tested
-parsets = bind_rows(parsets, parsets, parsets) %>% mutate(ff = rep(c(.5, .75, .95), each = nboot))
+parsets = bind_rows(parsets, parsets, parsets) %>% mutate(ff = rep(fracsSubclinical, each = nboot))
 
 ## Plot plausible incubation period distributions (Fig. 3 - supplement 1)
 xx = seq(0, 25, by = .01)
-best = data.frame(x=xx) %>% mutate(value = dgamma(x, shape = 5.7/scale.in, scale = scale.in))
+best = data.frame(x=xx) %>% mutate(value = dgamma(x, shape = best.shape/scale.in, scale = scale.in))
 sapply(X = seq(low.vals['mInc'], high.vals['mInc'], by = .5), FUN = function(mm){dgamma(xx, shape = mm/scale.in, scale = scale.in)}) -> gammaFits
 colnames(gammaFits) = seq(low.vals['mInc'], high.vals['mInc'], by = .5)
 as.data.frame(gammaFits) %>%
@@ -543,9 +559,9 @@ dev.off()
 
 ## Simulate and save population outcomes
 ## This takes about 10 mins to run. Could be parallelized easliy.
-reset = TRUE # If true, rebuild output files. Else, load saved files.
+reset = FALSE # If true, rebuild output files. Else, load saved files.
 ## Get outcomes for both arrival and departure
-cl = makeCluster(5)
+cl = makeCluster(detectCores()-1)
 
 if(!file.exists('bootList_ad.RData')|reset){
   bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE, meanToAdmit = mToAdmit)}
@@ -608,25 +624,26 @@ data.frame(departure.only = sapply(bootList_d[2,], function(yy){yy}),
   group_by(screen_type, ff)  %>% 
   mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
                           labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = c(.95, .75, .5), 
-                           labels = c('5% subclinical', '25% subclinical', '50% subclinical'))) -> temp
+         scenario = factor(ff, levels = rev(fracsSubclinical), 
+                           labels = c('5% subclinical', '25% subclinical', '50% subclinical'))) -> long_frac_caught
 
-temp %>% summarise(med = median(1-frac.missed),
+long_frac_caught %>% summarise(med = median(1-frac.missed),
                    lower = quantile(1-frac.missed, probs = .025),
                    upper = quantile(1-frac.missed, probs = .975)) %>%
   ungroup() %>%
   mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
                           labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = c(.95, .75, .5), 
+         scenario = factor(ff, levels = rev(fracsSubclinical), 
                            labels = c('5% subclinical', '25% subclinical',
                                       '50% subclinical'))) -> frac  
 
 
-ggplot(temp)+
+ggplot(long_frac_caught)+
   geom_violin(aes(x=sc_type,y=1-frac.missed))+
   geom_point(data=frac,aes(x = sc_type, y = med), size = 3)+
   geom_segment(data=frac,aes(x = sc_type, xend = sc_type, y = lower, yend = upper))+
   geom_text(data = frac, aes(x = sc_type, y = upper+.2, label = sprintf('%1.2f', med))) +
+  geom_text(data = frac, aes(x = sc_type, y = upper+.18, label = sprintf('(%1.2f-%1.2f)', lower, upper))) +
   theme_bw()+
   xlab('Screening type')+
   ylab('Fraction detected')+
@@ -679,4 +696,119 @@ stackedBars
 png('2020_nCov/Fig3_populationOutcomes.png', width = 7, height = 7, units = 'in', res = 480)
 grid.arrange(fracCaught, stackedBars, nrow = 2, heights = c(2,3))
 dev.off()
+
+
+## Write a function to perform PRCC on a given set of inputs and outputs
+get_prcc = function(input_df, output_df){
+  ## input_mat is a data frame whose columns contain input parameter values
+  ## output_vec is a data frame with one column, and the same number of rows as input_mat
+  ## PRCC method is described in https://reader.elsevier.com/reader/sd/pii/S0022519308001896?token=63EDCF653C192107235289FFA257089BE0BD8CFEF8501D34689D22AEAA56F88094A7B85F746CDD7BE96BC0828FBC926D
+  
+  rank_inputs <- mutate_all(input_df, rank)
+  rank_output <- mutate_all(output_df, rank)
+
+get_one_PRCC = function(ii){    
+    ## Regression 1
+    out1 = names(rank_inputs)[ii]
+    ins = names(rank_inputs)[-ii]
+    form1 = sprintf("%s ~ %s", out1, (paste0(ins, collapse = '+')))
+    reg1 = lm(form1, data = rank_inputs)
+    resid1 = reg1$residuals
+    
+    
+    ## Regression 2
+    out2 = names(rank_output)
+    dd = cbind(rank_inputs[,-ii], rank_output)
+    form2 = sprintf("%s ~ %s", out2, (paste0(ins, collapse = '+')))
+    reg2 = lm(form2, data = dd)
+    resid2 = reg2$residuals
+    
+    PRCC = cor.test(resid1, resid2, method = 'pearson')
+    list(par = out1, coef = PRCC$estimate, pval = PRCC$p.value)
+}
+sapply(1:ncol(input_df), get_one_PRCC)
+}
+
+## Test
+input_df = parsets %>% filter(ff == 0.5) %>% select(-ff) %>% ungroup()
+output_df = long_frac_caught %>% ungroup() %>% filter(sc_type == 'both', ff == 0.5) %>% select(frac.missed)
+get_prcc(input_df, output_df)
+## Test against a built-in function from the sensitivity package
+sensitivity::pcc(X = input_df, y = output_df, rank = TRUE)
+## Looks good.
+##
+
+## Perform PRCC for each of the following combinations of conditions:
+### a. Fraction subclinical 
+### b. Screening type
+### c. Output = fraction detected or p(first 3 stopped)
+
+
+## Get a data set of all relevant inputs and outputs
+full_join(  ## Join outcomes with underlying parameter values
+  tibble(departure.only = sapply(bootList_d[2,], function(yy){yy}),
+         arrival.only = sapply(bootList_a[2,], function(yy){yy}),
+         both = sapply(bootList_ad[2,], function(yy){yy})) %>%
+    mutate(parset = 1:nrow(parsets)),
+  parsets %>% mutate(parset = 1:nrow(.)),
+  by = 'parset') %>%
+  pivot_longer(cols = departure.only:both, names_to = 'screening_type', values_to = 'frac_missed') %>%
+  mutate(frac_detected = 1-frac_missed,
+         fracSubclinical = factor(1-ff,
+                                     labels = c('5%', '25%', '50%')),
+        # parameter = factor(parameter, 
+        #                    labels = c('Fever sensitivity', 'Risk sensitivity', 'Fraction aware of risk', 'Mean onset to admit (d)', 'Mean incubation (d)', 'R0')),
+         screening_type = factor(screening_type,
+                                 labels = c('arrival', 'departure', 'both'))) -> fDetainedPRCC_wide
+
+## Apply PRCC function to all combinations
+mapply(FUN = function(st, fsc){
+  inDf = filter(fDetainedPRCC_wide, screening_type == st & fracSubclinical == fsc) %>%
+    select(gg:meanToAdmit)
+  outDf = filter(fDetainedPRCC_wide, screening_type == st & fracSubclinical == fsc) %>%
+    select(frac_detected)
+  list(get_prcc(input_df = inDf, output_df = outDf) %>% t() %>% as.data.frame() %>% mutate(fracsSubclinical = fsc, screeningType = st))
+}, 
+st = rep(c('arrival', 'departure', 'both'), each = 3),
+fsc = rep(c('50%', '25%', '5%'), times = 3),
+SIMPLIFY = 'list') %>%
+  bind_rows() %>%
+  mutate(screeningType = factor(screeningType),
+         par = unlist(par) %>% as.factor(),
+         coef = unlist(coef)) %>%
+  mutate(is.signif.wBonferroni = pval < 0.05/nrow(.),
+         ctxt = sprintf('%1.2f%s', coef, ifelse(is.signif.wBonferroni, '*', '')))-> PRCC
+PRCC %>%
+  ggplot() +
+  geom_bar(aes(x = par, y = coef, fill = screeningType), stat = 'identity', position = 'dodge', color = 'black', alpha = .5) +
+  scale_fill_viridis_d(end = .8)+
+  scale_color_viridis_d(end = .8)+
+  geom_text(aes(x = (as.numeric(par)+((as.numeric(screeningType)-2)*.3)), y = coef+.05, label = ctxt))+
+  facet_grid(fracsSubclinical~.)
+ggsave('2020_nCov/PRCC.png', width = 8, height = 4.5, units = 'in')
+
+
+## Look at p(first n detetcted)
+
+bind_rows(
+  departureMeans = (sapply(bootList_d[4,], function(yy){yy}) %>% t() %>% as.data.frame()),
+  arrivalMeans = (sapply(bootList_a[4,], function(yy){yy}) %>% t() %>% as.data.frame()),
+  bothMeans = (sapply(bootList_ad[4,], function(yy){yy}) %>% t() %>% as.data.frame()) 
+) %>%
+  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nboot) %>% rep(times = 3), 
+                           levels = rev(c('50% subclinical', '25% subclinical', '5% subclinical')))) %>%
+  mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nboot*3)) %>%
+  pivot_longer(V1:V30, names_to = 'nthTraveller', values_to = 'outcome') %>%
+  group_by(strategy, scenario, nthTraveller) %>%
+  summarise(frac = sum(outcome)/n()) %>%
+  extract(col = nthTraveller, into = 'nthTraveller', regex = 'V(\\d+)') %>%
+  mutate(nthTraveller = as.numeric(nthTraveller)) %>%
+  ggplot()+
+  geom_bar(aes(x = nthTraveller, y = frac, fill = scenario), stat = 'identity', position = 'dodge')+
+  facet_grid(scenario~strategy) +
+  scale_fill_viridis_d()+
+  theme_bw()
+ggsave('2020_nCov/nThTraveller.png', width = 8, height = 4.5, units = 'in')
+
+
 
