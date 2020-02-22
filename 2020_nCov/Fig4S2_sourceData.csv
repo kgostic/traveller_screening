@@ -1,0 +1,100 @@
+"par","coef","pval","NOTsubclinical","screeningType","is.signif.wBonferroni","ctxt"
+"frac aware
+of risk",0.130850301620557,3.31703753326902e-05,"50% subclinical","arrival",TRUE,"0.13*"
+"thermal scanner
+sensitivity",0.261147944769355,4.69973039063599e-17,"50% subclinical","arrival",TRUE,"0.26*"
+"questionnaire
+sensitivity",0.0816132369503276,0.00982531103195286,"50% subclinical","arrival",FALSE,"0.08"
+"mean incubation
+(days)",-0.164009250412897,1.83525063314273e-07,"50% subclinical","arrival",TRUE,"-0.16*"
+"R0",-0.00309470733597664,0.922137899895181,"50% subclinical","arrival",FALSE,"-0.00"
+"onset to
+isolation (days)",0.252264857300148,5.55631574389311e-16,"50% subclinical","arrival",TRUE,"0.25*"
+"frac aware
+of risk",0.142572046903829,6.01035378261369e-06,"25% subclinical","arrival",TRUE,"0.14*"
+"thermal scanner
+sensitivity",0.356632678672217,2.32717309999412e-31,"25% subclinical","arrival",TRUE,"0.36*"
+"questionnaire
+sensitivity",0.0878655305699869,0.00542826214521142,"25% subclinical","arrival",FALSE,"0.09"
+"mean incubation
+(days)",-0.158823871320784,4.45885312296389e-07,"25% subclinical","arrival",TRUE,"-0.16*"
+"R0",-0.0240845783762994,0.446789067231733,"25% subclinical","arrival",FALSE,"-0.02"
+"onset to
+isolation (days)",0.254472609487941,3.03412053380704e-16,"25% subclinical","arrival",TRUE,"0.25*"
+"frac aware
+of risk",0.0879961599732902,0.00535928411060306,"5% subclinical","arrival",FALSE,"0.09"
+"thermal scanner
+sensitivity",0.45672396281141,1.1002439260988e-52,"5% subclinical","arrival",TRUE,"0.46*"
+"questionnaire
+sensitivity",0.0801348269938541,0.0112449263568016,"5% subclinical","arrival",FALSE,"0.08"
+"mean incubation
+(days)",-0.150835553633908,1.65695167212451e-06,"5% subclinical","arrival",TRUE,"-0.15*"
+"R0",-0.00483719139861189,0.878575713461571,"5% subclinical","arrival",FALSE,"-0.00"
+"onset to
+isolation (days)",0.290058096008454,7.75145127038796e-21,"5% subclinical","arrival",TRUE,"0.29*"
+"frac aware
+of risk",0.234676094134187,5.60275305286471e-14,"50% subclinical","departure",TRUE,"0.23*"
+"thermal scanner
+sensitivity",0.164663541854571,1.63749033679723e-07,"50% subclinical","departure",TRUE,"0.16*"
+"questionnaire
+sensitivity",0.120069846927651,0.000141249639926107,"50% subclinical","departure",TRUE,"0.12*"
+"mean incubation
+(days)",-0.101562050031001,0.00130001714200812,"50% subclinical","departure",FALSE,"-0.10"
+"R0",-0.00599565689646046,0.849807627914279,"50% subclinical","departure",FALSE,"-0.01"
+"onset to
+isolation (days)",0.245650577101451,3.287450691607e-15,"50% subclinical","departure",TRUE,"0.25*"
+"frac aware
+of risk",0.186147378205665,3.01009019027666e-09,"25% subclinical","departure",TRUE,"0.19*"
+"thermal scanner
+sensitivity",0.247765787286378,1.87245718552594e-15,"25% subclinical","departure",TRUE,"0.25*"
+"questionnaire
+sensitivity",0.153328046122156,1.10795286654985e-06,"25% subclinical","departure",TRUE,"0.15*"
+"mean incubation
+(days)",-0.214170720119325,7.71386305980883e-12,"25% subclinical","departure",TRUE,"-0.21*"
+"R0",0.0166280897525412,0.599440678238062,"25% subclinical","departure",FALSE,"0.02"
+"onset to
+isolation (days)",0.315141999917829,1.7057824109544e-24,"25% subclinical","departure",TRUE,"0.32*"
+"frac aware
+of risk",0.118245628111777,0.000178439712597544,"5% subclinical","departure",TRUE,"0.12*"
+"thermal scanner
+sensitivity",0.30094170169385,2.22009149594798e-22,"5% subclinical","departure",TRUE,"0.30*"
+"questionnaire
+sensitivity",0.127780710497322,5.07058550811106e-05,"5% subclinical","departure",TRUE,"0.13*"
+"mean incubation
+(days)",-0.267772384445457,6.99933633267594e-18,"5% subclinical","departure",TRUE,"-0.27*"
+"R0",0.0182717192788685,0.56385298657632,"5% subclinical","departure",FALSE,"0.02"
+"onset to
+isolation (days)",0.41698129061445,2.43426085325096e-43,"5% subclinical","departure",TRUE,"0.42*"
+"frac aware
+of risk",0.193065406731739,7.47791023674501e-10,"50% subclinical","both",TRUE,"0.19*"
+"thermal scanner
+sensitivity",0.261967723353322,3.72382529897845e-17,"50% subclinical","both",TRUE,"0.26*"
+"questionnaire
+sensitivity",0.164996056145377,1.54503796823388e-07,"50% subclinical","both",TRUE,"0.16*"
+"mean incubation
+(days)",-0.0920126173498032,0.00358852526662906,"50% subclinical","both",FALSE,"-0.09"
+"R0",-0.0470297190312578,0.13723347509177,"50% subclinical","both",FALSE,"-0.05"
+"onset to
+isolation (days)",0.276068806996304,5.9738589389887e-19,"50% subclinical","both",TRUE,"0.28*"
+"frac aware
+of risk",0.16698116215914,1.08944789918078e-07,"25% subclinical","both",TRUE,"0.17*"
+"thermal scanner
+sensitivity",0.362314215820717,2.20536500314388e-32,"25% subclinical","both",TRUE,"0.36*"
+"questionnaire
+sensitivity",0.0941898265859494,0.00286887906236436,"25% subclinical","both",FALSE,"0.09"
+"mean incubation
+(days)",-0.147933170697715,2.62620766807947e-06,"25% subclinical","both",TRUE,"-0.15*"
+"R0",-0.0169164831836996,0.593123385443031,"25% subclinical","both",FALSE,"-0.02"
+"onset to
+isolation (days)",0.358865588553662,9.27070370340448e-32,"25% subclinical","both",TRUE,"0.36*"
+"frac aware
+of risk",0.0622680480091278,0.0490063668756833,"5% subclinical","both",FALSE,"0.06"
+"thermal scanner
+sensitivity",0.452465166604867,1.26832939239879e-51,"5% subclinical","both",TRUE,"0.45*"
+"questionnaire
+sensitivity",0.105667258118637,0.000817837534210183,"5% subclinical","both",TRUE,"0.11*"
+"mean incubation
+(days)",-0.207605218981573,3.37517438390028e-11,"5% subclinical","both",TRUE,"-0.21*"
+"R0",-0.0326745669370798,0.301957905488003,"5% subclinical","both",FALSE,"-0.03"
+"onset to
+isolation (days)",0.40476977476606,1.03667855135866e-40,"5% subclinical","both",TRUE,"0.40*"

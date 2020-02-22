@@ -3,36 +3,50 @@ library(grid)
 library(gridExtra)
 library(tidyverse)
 library(viridis)
-library(pomp)
+set.seed(38)
+reset = FALSE ## If FALSE, load saved .RData files to generate Figs. 3-4. 
+             ## If TRUE, rerun simulations before generating Figs. 3-4. Simulations take a few minutes to run.
 
 
-
+## ------------------------------------------------------------------------------------------------------------------------
+## 
+## \\\\\\\\\\\\\\  SECTION 1: SETUP AND FUNCTION DEFINITIONS
+## 
+## ------------------------------------------------------------------------------------------------------------------------
 
 ## ------------------------------------------------------------
 ## \\\\\\\\\\\\\\ DEFINE GLOBAL VARIABLES ////////////////// ##
 ## ------------------------------------------------------------
+flight.hrs = 24
+flight.time = flight.hrs/24  ## Set assumed duration of flight (all figures)
+
+
 ###  SET FIG. 2 INPUTS
-fracsSubclinical = c(.5, .75, .95) ## Set fractions of subclincal cases (Fig. 2)
-incubationMeans = c(4.5, 5.5, 6.5) ## Set mean incubation periods (Fig. 2)
+NOTsubclinical = c(.5, .75, .95) ## Set the fraction of cases with detectable fever or cough (1- assumed fraction subclincal cases) (Fig. 2)
+incubationMeans = c(4.5, 5.5, 6.5) ## Set mean incubation periods (in days) (Fig. 2)
 
 
 ## SET FIG. 3 INPUTS
+low.vals = c(gg = .05, f.sens = .6, g.sens = .05, mInc = 4.5, R0 = 1.5, meanToAdmit = 3)  ## Define low and high ranges for LHS (as in Table 1)
+high.vals = c(gg = .40, f.sens = .90, g.sens = .25, mInc = 6.5, R0 = 4, meanToAdmit = 7)
 ## gg = prob. aware of exposure risk
-## f.sens = sensitivity of thermal scanners for fever
-## g.sens = "sensitivity" (i.e. prob of thruthful self-reporting) on risk questionnaire
+## f.sens = sensitivity of thermal scanners for fever [0, 1]
+## g.sens = "sensitivity" (i.e. prob of thruthful self-reporting) on risk questionnaire [0, 1]
 ## mInc = mean incubation period (days)
 ## R0 - R0
 ## meanToAdmit - mean days from onset of symptoms to isolation (affects maximum time from exposure to iniiation of travel)
-low.vals = c(gg = .05, f.sens = .6, g.sens = .05, mInc = 4.5, R0 = 1.5, meanToAdmit = 3)  ## Define low and high ranges for LHS (as in Table 1)
-high.vals = c(gg = .40, f.sens = .90, g.sens = .25, mInc = 6.5, R0 = 4, meanToAdmit = 7)
-nboot = 1000    ## n sim samples
-popn = 30      ## population size of infected travelers
+nsim = 1000    ## n simulation trials, each corresponding to a unique LHS paramter set
+popn = 30       ## population size of infected travelers
 incVariance = 2.25^2 ## Fixed variance of the incubation period distribution
 ## Labels for detection categories
 cat.labels = c('detected: departure fever screen', "detected: departure risk screen", "detected: arrival fever screen",
                "detected: arrival risk screen", 'missed: had both', 'missed: had fever', 'missed: had risk awareness', 'missed: undetectable')
 ## Set colors
-cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'brown4', 'salmon2', 'firebrick1')
+# cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'brown4', 'salmon2', 'firebrick1')
+cols = c('skyblue', 'deepskyblue', 'royalblue1', 'mediumblue', 'khaki1', 'goldenrod1', 'darkorange', 'firebrick1') # Move to a more colorblind friendly palette
+
+
+
 
 
 ## -----------------------------------------------------
@@ -42,12 +56,11 @@ cols = c('darkseagreen2', 'deepskyblue', 'seagreen4', 'royalblue3', 'bisque', 'b
 # ---------
 get.inc.dist <- function(meanInc){
   ## Input mean of gamma-distributed incubation times
-  ## Output a function that calculates the PDF
-    #shape=k scale= theta
+  ## Output a function, incCDF, that inputs a time since exposure and outputs the cumulative density
     scale.in = incVariance/meanInc
     shape.in = meanInc/scale.in
   
-  return(incPDF <- function(d){pgamma(d, shape = shape.in, scale = scale.in)})
+  return(incCDF <- function(d){pgamma(d, shape = shape.in, scale = scale.in)})
 }
 
 # ---------
@@ -310,7 +323,7 @@ get_frac_caught = function(tSinceExposed, ff, gg, dscreen, ascreen, incubation.d
   ## meanToAdmit - mean days from onset to admission (this is the detectable window) 
   ## meanIncubate - mean incubation period (exposure ot onset). 
   ## OUTPUTS - vector. Fraction caught by: departure risk, departure fever, arrival risk, arrival fever, cleared.
-  screen.passengers(tSinceExposed, del.d=1, ff, gg, sd=.7, sa=.7, rd=.25, ra=.25, incubation.d, relative = 0, split1 = 2, arrival_screen = ascreen, departure_screen = dscreen, frac_evaded)
+  screen.passengers(tSinceExposed, del.d=flight.time, ff, gg, sd=.7, sa=.7, rd=.25, ra=.25, incubation.d, relative = 0, split1 = 2, arrival_screen = ascreen, departure_screen = dscreen, frac_evaded)
 }
 # ## Test function
 # get_frac_caught(tSinceExposed = 2, ff = .7, gg = .2, dscreen = TRUE, ascreen = TRUE, incubation.d = get.inc.dist(meanInc = 4.5), frac_evaded = 0)
@@ -328,8 +341,6 @@ get_frac_caught_over_time = function(ff, gg, ascreen, dscreen, incubation.d, fra
 # Test
 # get_frac_caught_over_time(ff = .7, gg = .2, ascreen = TRUE, dscreen = TRUE, incubation.d = get.inc.dist(meanInc = 4.5), frac_evaded = 0)
 # -------------------------------
-
-
 
 # -------------------------------
 # Wrapper that simulates a population of individuals, each with different times since exposure
@@ -371,16 +382,20 @@ one_sim = function(meanInc, R0, f0, g0, f.sens, g.sens, gg, del.d, as, ds, meanT
 
 
 
+## ------------------------------------------------------------------------------------------------------------------------
+## 
+## \\\\\\\\\\\\\\  SECTION 2: RUN ANALYSES AND PLOT
+## 
+## ------------------------------------------------------------------------------------------------------------------------
+
 ## ----------------------------------------------------
-## \\\\\\\\\\\\\\       Fig. 2  & supplementary figs   ////////////////// ##
+## \\\\\\\\\\\\\\       Fig. 2  & associated supplementary figs   ////////////////// ##
 ## ----------------------------------------------------
 ## Fig. 2. Plot the individual probability of different screening outcomes vs. times since exposure
 ##   Run across a grid of probabilities of detectable symptoms and mean incubation periods
 ##   Assume no one evades screening
 ## Set grid of values to test for ff (fraction with symptoms, 1-frac subclinical), and mean incubation (days)
-##
- 
-input_grid = expand.grid(ffs = fracsSubclinical, meanIncs = incubationMeans)
+input_grid = expand.grid(ffs = NOTsubclinical, meanIncs = incubationMeans)
 input_grid
 ## Wrapper to repeat fig. 2 analysis across input grid parameter values
 gridWrapper = function(ff.in, mInc.in){
@@ -419,7 +434,9 @@ full_join(filter(temp, minOrMax == 'Min'), filter(temp, minOrMax == 'Max'), by =
          outcome = factor(outcome, levels = rev(c('dFever', 'dRisk', 'aFever', 'aRisk', 'mb', 'mf', 'mr', 'nd')), 
                           labels =(rev(cat.labels)))) -> rib
 blackline <- filter(rib,outcome=="detected: arrival risk screen") # Extract height of dotted line
-## Plot
+
+
+## ---------------------------------Plot Fig. 2 ---------------------------------
 ggplot(rib)+
   geom_ribbon(aes(x = days.since.exposed, ymin = yymin, ymax = yymax, fill = outcome))+
   facet_grid(fever~meanIncubate) +
@@ -430,11 +447,12 @@ ggplot(rib)+
   scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2_grid_of_ribbon_plots.png', width = 8, height = 4.5, units = 'in')
+write.csv(rib, file = '2020_nCov/Fig2_sourceData.csv', row.names = FALSE)
 
 
 
 
-## Fig 2. Supplemtary figure 1. Departure screening only.
+## --------------------------------- Fig 2. Supplemtary figure 1. Departure screening only. ---------------------------------
 gridWrapper = function(ff.in, mInc.in){
   incFun = get.inc.dist(meanInc = mInc.in)
   get_frac_caught_over_time(ff = ff.in, gg = 0.2, ascreen = FALSE, dscreen = TRUE, incubation.d = incFun, frac_evaded = 0)
@@ -478,11 +496,11 @@ blackline <- filter(rib,outcome=="detected: arrival risk screen")
   scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2S1_grid_of_ribbon_plots_departure_only.png', width = 8, height = 4.5, units = 'in')
+write.csv(rib, file = '2020_nCov/Fig2S1_sourceData.csv', row.names = FALSE)
 
 
 
-
-## Fig 2. Supplemtary figure 2. Arrival screening only.
+## --------------------------------- Fig 2. Supplemtary figure 2. Arrival screening only. ---------------------------------
 gridWrapper = function(ff.in, mInc.in){
   incFun = get.inc.dist(meanInc = mInc.in)
   get_frac_caught_over_time(ff = ff.in, gg = 0.2, ascreen = TRUE, dscreen = FALSE, incubation.d = incFun, frac_evaded = 0)
@@ -491,7 +509,6 @@ apply(X = input_grid, MARGIN = 1, FUN = function(ii){gridWrapper(ii[1], ii[2])})
   bind_rows() %>% as.tbl() %>%
   mutate(fever = rep(input_grid$ffs, each = nrow(.)/nrow(input_grid)),
          meanIncubate = rep(input_grid$meanIncs, each = nrow(.)/nrow(input_grid))) -> gridOutputs
-## Reformat for plotting
 ## Reformat for plotting
 gridOutputs %>%
   mutate(dFeverMin = 0, dFeverMax = dFeverMin + caught.dpt.fever,
@@ -527,7 +544,7 @@ blackline <- filter(rib,outcome=="detected: arrival risk screen")
   scale_y_continuous(breaks = seq(0,1,.25),labels=paste(seq(0,100,25),"%",sep=""))+
   xlab('Days since exposure')  
 ggsave('2020_nCov/Fig2S2_grid_of_ribbon_plots_arrival_only.png', width = 8, height = 4.5, units = 'in')
-
+write.csv(rib, file = '2020_nCov/Fig2S2_sourceData.csv', row.names = FALSE)
 
 
 
@@ -540,46 +557,20 @@ ggsave('2020_nCov/Fig2S2_grid_of_ribbon_plots_arrival_only.png', width = 8, heig
 ## -------------------------------------------------------------------------
 ## Generate a range of par combos to test
 ## Use Latin Hypercube Sampling to span plausible parameter ranges
-parsets = sobolDesign(lower = low.vals, upper = high.vals, nseq = nboot)  # sobolDesign from package pomp draws LHS samples
+parsets = pomp::sobolDesign(lower = low.vals, upper = high.vals, nseq = nsim)  # sobolDesign from package pomp draws LHS samples
 ## Replicate the list of parsets across each subclinical case fraction tested
-parsets = bind_rows(parsets, parsets, parsets) %>% mutate(ff = rep(fracsSubclinical, each = nboot))
-
-## Plot plausible incubation period distributions (Fig. 3 - supplement 1)
-#shape=k scale= theta
-#scale = variance/mean
-#shape = mean/scale
-xx = seq(0, 25, by = .01)
-dat <- NA
-for (m in incubationMeans){
-  theta = incVariance/m
-  k = m/theta       
-  dat <- c(dat,dgamma(xx,shape = k,scale = theta))
-}
-dat_all <- data.frame(xval=rep(xx,length(means)),vals=dat[-1],
-                      meangamma=as.factor(rep(means,each=length(xx))))
-png(filename = '2020_nCov/Fig3S1_parRanges.png', width = 6, height = 4, units = 'in', res = 480)
-ggplot(dat_all)+
-  geom_line(aes(x=xval,y=vals,color=meangamma),lwd=1)+
-  scale_color_viridis(discrete=T,name="mean (days)")+
-  scale_x_continuous(limits = c(0,25))+
-  xlab("incubation period (days)")+
-  theme_classic(base_size=14)+
-  ylab("density")
-dev.off()
+parsets = bind_rows(parsets, parsets, parsets) %>% mutate(ff = rep(NOTsubclinical, each = nsim))
 
 
-
-
-
+## --------------------------------- Fig. 3 Analyses  ---------------------------------
 
 ## Simulate and save population outcomes
 ## This takes about 10 mins to run. Could be parallelized easliy.
-reset = FALSE # If true, rebuild output files. Else, load saved files.
 ## Get outcomes for both arrival and departure
 cl = makeCluster(detectCores()-1)
 
 if(!file.exists('bootList_ad.RData')|reset){
-  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE, meanToAdmit = mToAdmit)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=flight.time, as=TRUE, ds=TRUE, meanToAdmit = mToAdmit)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
@@ -595,7 +586,7 @@ if(!file.exists('bootList_ad.RData')|reset){
 }
 ## Get outcomes for departure only
 if(!file.exists('bootList_d.RData')|reset){
-  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=FALSE, ds=TRUE, meanToAdmit = mToAdmit)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=flight.time, as=FALSE, ds=TRUE, meanToAdmit = mToAdmit)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
@@ -611,7 +602,7 @@ if(!file.exists('bootList_d.RData')|reset){
 }
 ## Get outcomes for arrival only
 if(!file.exists('bootList_a.RData')|reset){
-  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=FALSE, meanToAdmit = mToAdmit)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=flight.time, as=TRUE, ds=FALSE, meanToAdmit = mToAdmit)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
@@ -628,6 +619,8 @@ if(!file.exists('bootList_a.RData')|reset){
 
 
 
+
+## --------------------------------- Fig. 3 Plots  ---------------------------------
 # -------------------------------
 ### Fraction Caught (Fig. 3A)
 # -------------------------------
@@ -639,7 +632,7 @@ data.frame(departure.only = sapply(bootList_d[2,], function(yy){yy}),
   group_by(screen_type, ff)  %>% 
   mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
                           labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = rev(fracsSubclinical), 
+         scenario = factor(ff, levels = rev(NOTsubclinical), 
                            labels = c('5% subclinical', '25% subclinical', '50% subclinical'))) -> long_frac_caught
 
 long_frac_caught %>% summarise(med = median(1-frac.missed),
@@ -648,7 +641,7 @@ long_frac_caught %>% summarise(med = median(1-frac.missed),
   ungroup() %>%
   mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
                           labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = rev(fracsSubclinical), 
+         scenario = factor(ff, levels = rev(NOTsubclinical), 
                            labels = c('5% subclinical', '25% subclinical',
                                       '50% subclinical'))) -> frac  
 
@@ -666,6 +659,7 @@ ggplot(long_frac_caught)+
   #geom_dotplot(binaxis='y', binwidth = .005,stackdir='center',aes(x=sc_type,y=1-frac.missed),dotsize=.5,alpha=.5)+
   facet_wrap(~scenario)   -> fracCaught
 fracCaught
+write.csv(long_frac_caught, file = '2020_nCov/Fig3A_sourceData.csv', row.names = FALSE)
 
 
 # -------------------------------
@@ -676,9 +670,9 @@ bind_rows(
   arrivalMeans = (sapply(bootList_a[1,], function(yy){yy}) %>% t() %>% as.data.frame()),
   bothMeans = (sapply(bootList_ad[1,], function(yy){yy}) %>% t() %>% as.data.frame()) 
 ) %>%
-  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nboot) %>% rep(times = 3), 
+  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nsim) %>% rep(times = 3), 
                            levels = rev(c('50% subclinical', '25% subclinical', '5% subclinical')))) %>%
-  mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nboot*3)) %>%
+  mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nsim*3)) %>%
   group_by(scenario, strategy) %>%
   summarise_all(mean) %>% ungroup() -> meanOutcomes
 names(meanOutcomes) = c('scenario', 'strategy', 'd.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nd', 'nde')
@@ -705,7 +699,7 @@ dashedLine = group_by(stackedB, strategy, scenario) %>%
   guides(fill=guide_legend(nrow = 4))+
   theme(legend.position = 'bottom') -> stackedBars
 stackedBars
-
+write.csv(stackedB, file = '2020_nCov/Fig3B_sourceData.csv', row.names = FALSE)
 
 # -------------------------------
 ## n detected before one missed (Fig. 3C)
@@ -715,9 +709,9 @@ bind_rows(
   arrivalMeans = (sapply(bootList_a[4,], function(yy){yy}) %>% t() %>% as.data.frame()),
   bothMeans = (sapply(bootList_ad[4,], function(yy){yy}) %>% t() %>% as.data.frame()) 
 ) %>%
-  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nboot) %>% rep(times = 3), 
+  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nsim) %>% rep(times = 3), 
                            levels = rev(c('50% subclinical', '25% subclinical', '5% subclinical')))) %>%
-  mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nboot*3)) %>%
+  mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nsim*3)) %>%
   pivot_longer(V1:V30, names_to = 'nthTraveller', values_to = 'outcome') %>%
   group_by(strategy, scenario, nthTraveller) %>%
   summarise(frac = sum(outcome)/n()) %>%
@@ -741,15 +735,17 @@ txtlbs = sprintf('%1.2f', truncated$frac); txtlbs = sapply(txtlbs, function(tt){
 # Plot
 ggplot(truncated)+
   geom_bar(aes(x = nthTraveller, y = frac, color = strategy, fill = strategy), stat = 'identity', alpha = .5, position = 'dodge')+
-  geom_text(aes(x = as.numeric(nthTraveller), y = (-.032)+(-(as.numeric(strategy)-2)*.02), label = txtlbs, color = strategy), hjust = .5, size = 3, show.legend = FALSE) +
+  geom_text(aes(x = as.numeric(nthTraveller), y = (-.038)+(-(as.numeric(strategy)-2)*.025), label = txtlbs, color = strategy), hjust = .5, size = 3, show.legend = FALSE) +
   facet_grid(.~scenario) +
-  scale_color_manual(values = rev(c('orange', 'royalblue', 'purple4')), aesthetics = c('color', 'fill'))+
+  scale_fill_viridis_d(end = .8)+
+  scale_color_viridis_d(end = .8)+
   theme_bw() +
   xlab('At least n detected before the first case importation') +
   ylab('Fraction of simulations')+
-  ylim(-.07, .33)+
+  ylim(-.07, .35)+
   theme(legend.position = 'bottom') -> nMissFig
 nMissFig
+write.csv(truncated, file = '2020_nCov/Fig3C_sourceData.csv', row.names = FALSE)
 
 
 ## Summarise n detected before first miss
@@ -758,12 +754,14 @@ tibble(
   arrival = sapply(bootList_a[4,], function(yy){yy %>% which.min()-1}),
   both = sapply(bootList_ad[4,], function(yy){yy %>% which.min()-1})
 ) %>%
-  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nboot),
+  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nsim),
                            levels = rev(c('50% subclinical', '25% subclinical', '5% subclinical')))) %>%
   pivot_longer(departure:both, names_to = 'strategy', values_to = 'nBeforeMiss') %>%
   group_by(scenario, strategy) %>%
   summarise(median = median(nBeforeMiss),
             upper = quantile(x = nBeforeMiss, .95))
+
+
 
 ## Layout fig. 3 and save
 png('2020_nCov/Fig3_populationOutcomes.png', width = 7, height = 10, units = 'in', res = 480)
@@ -774,7 +772,30 @@ dev.off()
 
 
 
-
+## --------------------------------- Plot Fig. 3S2 ---------------------------------
+## Plot plausible incubation period distributions 
+#shape=k scale= theta
+#scale = variance/mean
+#shape = mean/scale
+xx = seq(0, 25, by = .01)
+dat <- NA
+for (m in incubationMeans){
+  theta = incVariance/m
+  k = m/theta       
+  dat <- c(dat,dgamma(xx,shape = k,scale = theta))
+}
+dat_all <- data.frame(xval=rep(xx,length(means)),vals=dat[-1],
+                      meangamma=as.factor(rep(means,each=length(xx))))
+png(filename = '2020_nCov/Fig3S2_parRanges.png', width = 6, height = 4, units = 'in', res = 480)
+ggplot(dat_all)+
+  geom_line(aes(x=xval,y=vals,color=meangamma),lwd=1)+
+  scale_color_viridis(discrete=T,name="mean (days)")+
+  scale_x_continuous(limits = c(0,25))+
+  xlab("incubation period (days)")+
+  theme_classic(base_size=14)+
+  ylab("density")
+dev.off()
+write.csv(dat_all, file = '2020_nCov/Fig3S2_sourceData.csv', row.names = FALSE)
 
 
 
@@ -815,14 +836,6 @@ get_one_PRCC = function(ii){
 sapply(1:ncol(input_df), get_one_PRCC)
 }
 
-# ## Test
-# input_df = parsets %>% filter(ff == 0.5) %>% select(-ff) %>% ungroup()
-# output_df = long_frac_caught %>% ungroup() %>% filter(sc_type == 'both', ff == 0.5) %>% select(frac.missed)
-# get_prcc(input_df, output_df)
-# ## Test against a built-in function from the sensitivity package
-# sensitivity::pcc(X = input_df, y = output_df, rank = TRUE)
-# ## Looks good.
-# ##
 
 ## Perform PRCC for each of the following combinations of conditions:
 ### a. Fraction subclinical 
@@ -852,7 +865,7 @@ mapply(FUN = function(st, fsc){
     select(gg:meanToAdmit)
   outDf = filter(fDetainedPRCC_wide, screening_type == st & fracSubclinical == fsc) %>%
     select(frac_detected)
-  list(get_prcc(input_df = inDf, output_df = outDf) %>% t() %>% as.data.frame() %>% mutate(fracsSubclinical = fsc, screeningType = st))
+  list(get_prcc(input_df = inDf, output_df = outDf) %>% t() %>% as.data.frame() %>% mutate(NOTsubclinical = fsc, screeningType = st))
 }, 
 st = rep(c('arrival', 'departure', 'both'), each = 3),
 fsc = rep(c('50%', '25%', '5%'), times = 3),
@@ -860,15 +873,16 @@ SIMPLIFY = 'list') %>%
   bind_rows() %>%
   mutate(screeningType = factor(screeningType, levels = c('both', 'arrival', 'departure')),
          par = unlist(par) %>% as.factor(),
+         pval = unlist(pval),
          coef = unlist(coef)) -> allPRCC
 
 allPRCC %>%
-  filter(fracsSubclinical == '25%') %>%
+  filter(NOTsubclinical == '25%') %>%
   mutate(is.signif.wBonferroni = pval < 0.05/nrow(allPRCC),
          ctxt = sprintf('%1.2f%s', coef, ifelse(is.signif.wBonferroni, '*', '')),
          par = factor(par, levels = c('R0', 'mInc', 'gg', 'f.sens', 'g.sens', 'meanToAdmit'),
                       labels = c('R0', 'mean incubation\n(days)', 'frac aware\nof risk', 'thermal scanner\nsensitivity', 'questionnaire\nsensitivity', 'onset to\nisolation (days)')),
-         fracsSubclinical = factor(fracsSubclinical, levels = c('50%', '25%', '5%'), labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> mainPRCC
+         NOTsubclinical = factor(NOTsubclinical, levels = c('50%', '25%', '5%'), labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> mainPRCC
 
 mainPRCC %>%
   ggplot() +
@@ -876,7 +890,7 @@ mainPRCC %>%
   scale_fill_viridis_d(end = .8, name = 'Screening type')+
   scale_color_viridis_d(end = .8)+
   geom_text(aes(x = (as.numeric(par)+((as.numeric(screeningType)-2)*.35)), y = coef*1.4, label = ctxt), size = 2.5)+
-  facet_grid(fracsSubclinical~.)+
+  facet_grid(NOTsubclinical~.)+
   theme_bw()+
   theme(axis.text.x = element_text(angle=0, hjust = .5)) +
   xlab('Parameter')+
@@ -890,7 +904,7 @@ allPRCC %>%
          ctxt = sprintf('%1.2f%s', coef, ifelse(is.signif.wBonferroni, '*', '')),
          par = factor(par, levels = c('R0', 'mInc', 'gg', 'f.sens', 'g.sens', 'meanToAdmit'),
                       labels = c('R0', 'mean incubation\n(days)', 'frac aware\nof risk', 'thermal scanner\nsensitivity', 'questionnaire\nsensitivity', 'onset to\nisolation (days)')),
-         fracsSubclinical = factor(fracsSubclinical, levels = c('50%', '25%', '5%'), labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> suppPRCC
+         NOTsubclinical = factor(NOTsubclinical, levels = c('50%', '25%', '5%'), labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> suppPRCC
 
 suppPRCC %>%
   ggplot() +
@@ -898,14 +912,14 @@ suppPRCC %>%
   scale_fill_viridis_d(end = .8, name = 'Screening type')+
   scale_color_viridis_d(end = .8)+
   geom_text(aes(x = (as.numeric(par)+((as.numeric(screeningType)-2)*.35)), y = coef*1.4, label = ctxt), size = 2.5)+
-  facet_grid(fracsSubclinical~.)+
+  facet_grid(NOTsubclinical~.)+
   theme_bw()+
   theme(axis.text.x = element_text(angle=0, hjust = .5)) +
   xlab('Parameter')+
   ylab('Partial rank correlation coefficient') +
   theme(legend.position = 'top')
 ggsave('2020_nCov/Fig4S1_PRCC.png', width = 7, height = 9, units = 'in')
-
+write.csv(suppPRCC, file = '2020_nCov/Fig4_4S1_sourceData.csv', row.names = FALSE)
 
 
 
@@ -927,14 +941,16 @@ ggsave('2020_nCov/Fig4S1_PRCC.png', width = 7, height = 9, units = 'in')
 ##                       Flat epidemic
 ## -------------------------------------------------------------------------
 
+
+## --------------------------------- Fig. 3S (flat epidemic) Analyses  ---------------------------------
+
 ## Simulate and save population outcomes
 ## This takes about 10 mins to run. Could be parallelized easliy.
-reset = FALSE # If true, rebuild output files. Else, load saved files.
 ## Get outcomes for both arrival and departure
 cl = makeCluster(detectCores()-1)
 
 if(!file.exists('bootList_ad_flat.RData')|reset){
-  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=TRUE, meanToAdmit = mToAdmit, growing = FALSE)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=flight.time, as=TRUE, ds=TRUE, meanToAdmit = mToAdmit, growing = FALSE)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
@@ -950,7 +966,7 @@ if(!file.exists('bootList_ad_flat.RData')|reset){
 }
 ## Get outcomes for departure only
 if(!file.exists('bootList_d_flat.RData')|reset){
-  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=FALSE, ds=TRUE, meanToAdmit = mToAdmit, growing = FALSE)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=flight.time, as=FALSE, ds=TRUE, meanToAdmit = mToAdmit, growing = FALSE)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
@@ -966,7 +982,7 @@ if(!file.exists('bootList_d_flat.RData')|reset){
 }
 ## Get outcomes for arrival only
 if(!file.exists('bootList_a_flat.RData')|reset){
-  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=1, as=TRUE, ds=FALSE, meanToAdmit = mToAdmit, growing = FALSE)}
+  bootWrapper = function(f.in, g.in, f.sens, g.sens, mInc, r0, mToAdmit){ one_sim(meanInc = mInc, R0 = r0, f0 = f.in, g0 = g.in, f.sens, g.sens, del.d=flight.time, as=TRUE, ds=FALSE, meanToAdmit = mToAdmit, growing = FALSE)}
   ## Simulate one population for each plausible paramter set
   mapply(FUN = bootWrapper,
          f.in = parsets$ff,
@@ -983,6 +999,7 @@ if(!file.exists('bootList_a_flat.RData')|reset){
 
 
 
+## --------------------------------- Fig. 3S (flat epidemic) Plots  ---------------------------------
 # -------------------------------
 ### Fraction Caught (Fig. 3A)
 # -------------------------------
@@ -994,7 +1011,7 @@ data.frame(departure.only = sapply(bootList_d_flat[2,], function(yy){yy}),
   group_by(screen_type, ff)  %>% 
   mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
                           labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = rev(fracsSubclinical), 
+         scenario = factor(ff, levels = rev(NOTsubclinical), 
                            labels = c('5% subclinical', '25% subclinical', '50% subclinical'))) -> long_frac_caught
 
 long_frac_caught %>% summarise(med = median(1-frac.missed),
@@ -1003,7 +1020,7 @@ long_frac_caught %>% summarise(med = median(1-frac.missed),
   ungroup() %>%
   mutate(sc_type = factor(screen_type, levels = c('departure.only', 'arrival.only', 'both'),
                           labels = c('departure', 'arrival', 'both')),
-         scenario = factor(ff, levels = rev(fracsSubclinical), 
+         scenario = factor(ff, levels = rev(NOTsubclinical), 
                            labels = c('5% subclinical', '25% subclinical',
                                       '50% subclinical'))) -> frac  
 
@@ -1021,7 +1038,7 @@ ggplot(long_frac_caught)+
   #geom_dotplot(binaxis='y', binwidth = .005,stackdir='center',aes(x=sc_type,y=1-frac.missed),dotsize=.5,alpha=.5)+
   facet_wrap(~scenario)   -> fracCaught
 fracCaught
-
+write.csv(long_frac_caught, file = '2020_nCov/Fig3S1A_sourceData.csv', row.names = FALSE)
 
 # -------------------------------
 ## Stacked barplot (Fig. 3B)
@@ -1031,9 +1048,9 @@ bind_rows(
   arrivalMeans = (sapply(bootList_a_flat[1,], function(yy){yy}) %>% t() %>% as.data.frame()),
   bothMeans = (sapply(bootList_ad_flat[1,], function(yy){yy}) %>% t() %>% as.data.frame()) 
 ) %>%
-  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nboot) %>% rep(times = 3), 
+  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nsim) %>% rep(times = 3), 
                            levels = rev(c('50% subclinical', '25% subclinical', '5% subclinical')))) %>%
-  mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nboot*3)) %>%
+  mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nsim*3)) %>%
   group_by(scenario, strategy) %>%
   summarise_all(mean) %>% ungroup() -> meanOutcomes
 names(meanOutcomes) = c('scenario', 'strategy', 'd.fever', 'd.risk', 'a.fever', 'a.risk', 'm.b', 'm.f', 'm.r', 'nd', 'nde')
@@ -1060,7 +1077,7 @@ ggplot(stackedB)+
   guides(fill=guide_legend(nrow = 4))+
   theme(legend.position = 'bottom') -> stackedBars
 stackedBars
-
+write.csv(stackedB, file = '2020_nCov/Fig3S1B_sourceData.csv', row.names = FALSE)
 
 # -------------------------------
 ## n detected before one missed (Fig. 3C)
@@ -1070,9 +1087,9 @@ bind_rows(
   arrivalMeans = (sapply(bootList_a_flat[4,], function(yy){yy}) %>% t() %>% as.data.frame()),
   bothMeans = (sapply(bootList_ad_flat[4,], function(yy){yy}) %>% t() %>% as.data.frame()) 
 ) %>%
-  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nboot) %>% rep(times = 3), 
+  mutate(scenario = factor(rep(c('50% subclinical', '25% subclinical', '5% subclinical'), each = nsim) %>% rep(times = 3), 
                            levels = rev(c('50% subclinical', '25% subclinical', '5% subclinical')))) %>%
-  mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nboot*3)) %>%
+  mutate(strategy = rep(c('departure', 'arrival', 'both'), each = nsim*3)) %>%
   pivot_longer(V1:V30, names_to = 'nthTraveller', values_to = 'outcome') %>%
   group_by(strategy, scenario, nthTraveller) %>%
   summarise(frac = sum(outcome)/n()) %>%
@@ -1099,14 +1116,15 @@ ggplot(truncated)+
   geom_bar(aes(x = nthTraveller, y = frac, color = strategy, fill = strategy), stat = 'identity', alpha = .5, position = 'dodge')+
   geom_text(aes(x = as.numeric(nthTraveller), y = (-.06)+(-(as.numeric(strategy)-2)*.035), label = txtlbs, color = strategy), hjust = .5, size = 3, show.legend = FALSE) +
   facet_grid(.~scenario) +
-  scale_color_manual(values = rev(c('orange', 'royalblue', 'purple4')), aesthetics = c('color', 'fill'))+
+  scale_fill_viridis_d(end = .8)+
+  scale_color_viridis_d(end = .8)+
   theme_bw() +
   xlab('At least n detected before the first case importation') +
   ylab('Fraction of simulations')+
   ylim(-.1, .55)+
   theme(legend.position = 'bottom') -> nMissFig
 nMissFig
-
+write.csv(truncated, file = '2020_nCov/Fig3S1C_sourceData.csv', row.names = FALSE)
 
 
 ## Layout fig. 3 and save
@@ -1153,7 +1171,7 @@ mapply(FUN = function(st, fsc){
     select(gg:meanToAdmit)
   outDf = filter(fDetainedPRCC_wide_flatEpidemic, screening_type == st & fracSubclinical == fsc) %>%
     select(frac_detected)
-  list(get_prcc(input_df = inDf, output_df = outDf) %>% t() %>% as.data.frame() %>% mutate(fracsSubclinical = fsc, screeningType = st))
+  list(get_prcc(input_df = inDf, output_df = outDf) %>% t() %>% as.data.frame() %>% mutate(NOTsubclinical = fsc, screeningType = st))
 }, 
 st = rep(c('arrival', 'departure', 'both'), each = 3),
 fsc = rep(c('50%', '25%', '5%'), times = 3),
@@ -1161,6 +1179,7 @@ SIMPLIFY = 'list') %>%
   bind_rows() %>%
   mutate(screeningType = factor(screeningType, levels = c('both', 'arrival', 'departure')),
          par = unlist(par) %>% as.factor(),
+         pval = unlist(pval),
          coef = unlist(coef)) -> allPRCC_flat
 
 allPRCC_flat %>%
@@ -1168,7 +1187,7 @@ allPRCC_flat %>%
          ctxt = sprintf('%1.2f%s', coef, ifelse(is.signif.wBonferroni, '*', '')),
          par = factor(par, levels = c('R0', 'mInc', 'gg', 'f.sens', 'g.sens', 'meanToAdmit'),
                       labels = c('R0', 'mean incubation\n(days)', 'frac aware\nof risk', 'thermal scanner\nsensitivity', 'questionnaire\nsensitivity', 'onset to\nisolation (days)')),
-         fracsSubclinical = factor(fracsSubclinical, levels = c('50%', '25%', '5%'), labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> PRCC_flat
+         NOTsubclinical = factor(NOTsubclinical, levels = c('50%', '25%', '5%'), labels = c('50% subclinical', '25% subclinical', '5% subclinical'))) -> PRCC_flat
 
 PRCC_flat %>%
   ggplot() +
@@ -1176,10 +1195,11 @@ PRCC_flat %>%
   scale_fill_viridis_d(end = .8, name = 'Screening type')+
   scale_color_viridis_d(end = .8)+
   geom_text(aes(x = (as.numeric(par)+((as.numeric(screeningType)-2)*.35)), y = coef*1.4, label = ctxt), size = 2.5)+
-  facet_grid(fracsSubclinical~.)+
+  facet_grid(NOTsubclinical~.)+
   theme_bw()+
   theme(axis.text.x = element_text(angle=0, hjust = .5)) +
   xlab('Parameter')+
   ylab('Partial rank correlation coefficient') +
   theme(legend.position = 'top')
 ggsave('2020_nCov/Fig4S2_PRCC_flat.png', width = 7, height = 9, units = 'in')
+write.csv(PRCC_flat, file = '2020_nCov/Fig4S2_sourceData.csv', row.names = FALSE)
