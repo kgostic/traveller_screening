@@ -8,7 +8,7 @@ Last update: Feb. 21, 2020
 ### :arrow_right: [[Use our model to generate your own outputs]](https://lloyd-smithlab.shinyapps.io/travelScreeningModel/).
 
 ### The source code we used to perform these analyses runs in R, and is all in this repo. If you want to use or modify our code, keep reading.
-(The exact release we used to generate the figures in the manuscript is [[here]](https://github.com/kgostic/traveller_screening/releases/tag/v2.1)).
+(The exact release we used to generate the figures in the manuscript is [[here]](https://github.com/kgostic/traveller_screening/releases/tag/v2.1).
 Feel free to use or modify this code. We just ask that you cite us:
  * Gostic K, Kucharski AJ, Lloyd-Smith JO. (2015) eLife 4:e05564.
  * Gostic K; Gomez, ACR; Mummah, RO; Kucharski, AJ; Lloyd-Smith JO. (2020). medRxiv: https://doi.org/10.1101/2020.01.28.20019224.
