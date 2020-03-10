@@ -3,7 +3,7 @@
 Last update: Feb. 21, 2020
 **https://www.medrxiv.org/content/10.1101/2020.01.28.20019224v2**
 
-### :arrow_right: [[Read the study]](https://github.com/kgostic/traveller_screening/blob/master/manuscript_Revision1.pdf).
+### :arrow_right: [[Read the study]](https://elifesciences.org/articles/55570).
 
 ### :arrow_right: [[Use our model to generate your own outputs]](https://lloyd-smithlab.shinyapps.io/travelScreeningModel/).
 
